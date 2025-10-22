@@ -1,0 +1,52 @@
+{
+  "seating_plan": {
+    "sections": [
+      {
+        "name": "Section A",
+        "rows": [
+          {
+            "row_number": "A1",
+            "seats": [
+              {"seat_number": "1", "occupied": false},
+              {"seat_number": "2", "occupied": false},
+              {"seat_number": "3", "occupied": true},
+              {"seat_number": "4", "occupied": false}
+            ]
+          },
+          {
+            "row_number": "A2",
+            "seats": [
+              {"seat_number": "1", "occupied": false},
+              {"seat_number": "2", "occupied": false},
+              {"seat_number": "3", "occupied": false},
+              {"seat_number": "4", "occupied": true}
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Section B",
+        "rows": [
+          {
+            "row_number": "B1",
+            "seats": [
+              {"seat_number": "1", "occupied": false},
+              {"seat_number": "2", "occupied": true},
+              {"seat_number": "3", "occupied": false},
+              {"seat_number": "4", "occupied": false}
+            ]
+          },
+          {
+            "row_number": "B2",
+            "seats": [
+              {"seat_number": "1", "occupied": true},
+              {"seat_number": "2", "occupied": false},
+              {"seat_number": "3", "occupied": false},
+              {"seat_number": "4", "occupied": false}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
