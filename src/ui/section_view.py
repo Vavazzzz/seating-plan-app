@@ -2,9 +2,9 @@
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QGraphicsRectItem,
     QVBoxLayout, QHBoxLayout, QPushButton, QInputDialog, QMessageBox,
-    QGraphicsSimpleTextItem
+    QGraphicsSimpleTextItem, QDialog, QFormLayout, QLineEdit, QSpinBox, QDialogButtonBox
 )
-from PyQt6.QtCore import QRectF, Qt, QPointF
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPen, QBrush, QPainter, QFont
 from ..models.section import Section
 
@@ -15,6 +15,92 @@ SEAT_GAP_Y = 8
 ROW_LABEL_MARGIN = 10
 ROW_LABEL_OFFSET = 8
 
+
+# ---------- RANGE INPUT DIALOG ----------
+class RangeInputDialog(QDialog):
+    """Generic dialog for creating seat or row ranges."""
+    _last_values = {
+        "row": "", "start_row": "", "end_row": "",
+        "start_seat": 1, "end_seat": 10
+    }
+
+    def __init__(self, mode: str, parent=None):
+        """
+        mode = "seat" or "row"
+        """
+        super().__init__(parent)
+        self.mode = mode
+        self.setWindowTitle("Add Seat Range" if mode == "seat" else "Add Row Range")
+        self.setModal(True)
+
+        form = QFormLayout()
+
+        if mode == "seat":
+            self.row_edit = QLineEdit(RangeInputDialog._last_values["row"])
+            self.start_seat = QSpinBox()
+            self.start_seat.setMaximum(9999)
+            self.start_seat.setValue(RangeInputDialog._last_values["start_seat"])
+            self.end_seat = QSpinBox()
+            self.end_seat.setMaximum(9999)
+            self.end_seat.setValue(RangeInputDialog._last_values["end_seat"])
+            form.addRow("Row name:", self.row_edit)
+            form.addRow("Start seat:", self.start_seat)
+            form.addRow("End seat:", self.end_seat)
+
+        else:  # mode == "row"
+            self.start_row = QLineEdit(RangeInputDialog._last_values["start_row"])
+            self.end_row = QLineEdit(RangeInputDialog._last_values["end_row"])
+            self.start_seat = QSpinBox()
+            self.start_seat.setMaximum(9999)
+            self.start_seat.setValue(RangeInputDialog._last_values["start_seat"])
+            self.end_seat = QSpinBox()
+            self.end_seat.setMaximum(9999)
+            self.end_seat.setValue(RangeInputDialog._last_values["end_seat"])
+            form.addRow("Start row:", self.start_row)
+            form.addRow("End row:", self.end_row)
+            form.addRow("Start seat:", self.start_seat)
+            form.addRow("End seat:", self.end_seat)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        form.addRow(buttons)
+        self.setLayout(form)
+
+    def get_data(self):
+        """Return validated user input or None."""
+        if self.mode == "seat":
+            row = self.row_edit.text().strip()
+            if not row:
+                QMessageBox.warning(self, "Missing data", "Row name cannot be empty.")
+                return None
+            start, end = self.start_seat.value(), self.end_seat.value()
+            if end < start:
+                start, end = end, start
+            # remember values
+            RangeInputDialog._last_values.update(row=row, start_seat=start, end_seat=end)
+            return {"row": row, "start_seat": start, "end_seat": end}
+
+        else:  # row mode
+            start_row = self.start_row.text().strip()
+            end_row = self.end_row.text().strip()
+            if not start_row or not end_row:
+                QMessageBox.warning(self, "Missing data", "Start and end row cannot be empty.")
+                return None
+            start_seat, end_seat = self.start_seat.value(), self.end_seat.value()
+            if end_seat < start_seat:
+                start_seat, end_seat = end_seat, start_seat
+            RangeInputDialog._last_values.update(
+                start_row=start_row, end_row=end_row, start_seat=start_seat, end_seat=end_seat
+            )
+            return {
+                "start_row": start_row, "end_row": end_row,
+                "start_seat": start_seat, "end_seat": end_seat
+            }
+
+
+# ---------- SEAT ITEM ----------
 class SeatItem(QGraphicsRectItem):
     def __init__(self, row: str, seat_number: str, x: float, y: float, w=SEAT_WIDTH, h=SEAT_HEIGHT):
         super().__init__(0, 0, w, h)
@@ -32,13 +118,14 @@ class SeatItem(QGraphicsRectItem):
         font = QFont()
         font.setPointSize(8)
         self.text.setFont(font)
-        # center text
+        self.center_text()
+        self.update_visual()
+
+    def center_text(self):
         b = self.rect()
         tw = self.text.boundingRect().width()
         th = self.text.boundingRect().height()
         self.text.setPos((b.width() - tw) / 2, (b.height() - th) / 2)
-
-        self.update_visual()
 
     def update_visual(self):
         pen = QPen(Qt.GlobalColor.black)
@@ -49,23 +136,15 @@ class SeatItem(QGraphicsRectItem):
         else:
             brush = QBrush(Qt.GlobalColor.lightGray)
         self.setBrush(brush)
-        # update text if seat_number changed externally
         self.text.setText(f"{self.seat_number}")
-        # re-center text
-        b = self.rect()
-        tw = self.text.boundingRect().width()
-        th = self.text.boundingRect().height()
-        self.text.setPos((b.width() - tw) / 2, (b.height() - th) / 2)
+        self.center_text()
 
     def hoverEnterEvent(self, event):
         self.setToolTip(f"Row {self.row} Seat {self.seat_number}")
         super().hoverEnterEvent(event)
 
-    def mouseReleaseEvent(self, event):
-        super().mouseReleaseEvent(event)
-        # visual update occurs later via selectionChanged handler, but ensure immediate update for single click
-        self.update_visual()
 
+# ---------- SECTION VIEW ----------
 class SectionView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -87,8 +166,8 @@ class SectionView(QWidget):
         btn_layout.addWidget(self.delete_btn)
         btn_layout.addWidget(self.renumber_btn)
 
-        self.add_range_btn.clicked.connect(self.add_seat_range_dialog)
-        self.add_rows_range_btn.clicked.connect(self.add_rows_range_dialog)
+        self.add_range_btn.clicked.connect(lambda: self.add_range_dialog("seat"))
+        self.add_rows_range_btn.clicked.connect(lambda: self.add_range_dialog("row"))
         self.delete_btn.clicked.connect(self.delete_selected)
         self.renumber_btn.clicked.connect(self.renumber_selected_dialog)
 
@@ -97,21 +176,19 @@ class SectionView(QWidget):
         layout.addLayout(btn_layout)
         self.setLayout(layout)
 
-        # ensure visual updates when selection changes
         self.scene.selectionChanged.connect(self.on_selection_changed)
 
+    # ---- Load & display section ----
     def load_section(self, section: Section):
         self.section = section
         self.scene.clear()
         if not section:
             return
 
-        # build rows dict
         rows = {}
-        for key, seat in section.seats.items():
+        for seat in section.seats.values():
             rows.setdefault(seat.row_number, []).append(seat)
 
-        # sort rows by numeric when possible else lexicographic
         def row_key(r):
             try:
                 return int(r)
@@ -121,115 +198,71 @@ class SectionView(QWidget):
         sorted_rows = sorted(rows.keys(), key=row_key)
 
         y = 0
-        max_row_width = 0
-        row_label_items = []
         for row in sorted_rows:
-            seats = rows[row]
-            # try numeric sort for seats
             try:
-                seats_sorted = sorted(seats, key=lambda s: int(s.seat_number))
+                seats_sorted = sorted(rows[row], key=lambda s: int(s.seat_number))
             except:
-                seats_sorted = sorted(seats, key=lambda s: s.seat_number)
+                seats_sorted = sorted(rows[row], key=lambda s: s.seat_number)
             x = 0
             for seat in seats_sorted:
                 item = SeatItem(row, seat.seat_number, x, y)
                 self.scene.addItem(item)
                 x += SEAT_WIDTH + SEAT_GAP_X
-            max_row_width = max(max_row_width, x)
-            y += SEAT_HEIGHT + SEAT_GAP_Y
-
-        # add row labels on the left
-        # compute label X position (negative offset)
-        label_x = - (ROW_LABEL_MARGIN + SEAT_WIDTH)
-        y = 0
-        for row in sorted_rows:
+            # row label
             label = QGraphicsSimpleTextItem(f"{row}")
             font = QFont()
             font.setPointSize(9)
             label.setFont(font)
-            # vertically center label relative to row seats
-            label_rect = label.boundingRect()
-            label.setPos(label_x, y + (SEAT_HEIGHT - label_rect.height()) / 2 + ROW_LABEL_OFFSET)
+            label.setPos(-ROW_LABEL_MARGIN - SEAT_WIDTH, y + (SEAT_HEIGHT - label.boundingRect().height()) / 2 + ROW_LABEL_OFFSET)
             self.scene.addItem(label)
             y += SEAT_HEIGHT + SEAT_GAP_Y
 
-        # adjust scene bounds so labels are visible
         bounding = self.scene.itemsBoundingRect()
-        # expand left to accommodate labels
-        bounding.setLeft(label_x - 10)
+        bounding.setLeft(bounding.left() - 40)
         self.scene.setSceneRect(bounding)
-
-        # ensure visuals reflect selection state
         self.update_all_seat_visuals()
 
-    def add_seat_range_dialog(self):
+    # ---- Add seat/row range unified ----
+    def add_range_dialog(self, mode: str):
         if not self.section:
             QMessageBox.warning(self, "No section", "Please select/create a section first.")
             return
 
-        row, ok = QInputDialog.getText(self, "Row name", "Row name (e.g., A or 1):")
-        if not ok or not row:
+        dlg = RangeInputDialog(mode, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
             return
-        start, ok = QInputDialog.getInt(self, "Start seat", "Start seat number:", 1, 0)
-        if not ok:
+        data = dlg.get_data()
+        if not data:
             return
-        end, ok = QInputDialog.getInt(self, "End seat", "End seat number:", start, 0)
-        if not ok:
-            return
-        self.section.add_seat_range(str(row), start, end)
+
+        if mode == "seat":
+            self.section.add_seat_range(data["row"], data["start_seat"], data["end_seat"])
+        else:
+            rows_to_add = self._generate_rows(data["start_row"], data["end_row"])
+            if not rows_to_add:
+                QMessageBox.warning(self, "Invalid rows", "Rows must both be numeric or single letters.")
+                return
+            for r in rows_to_add:
+                self.section.add_seat_range(r, data["start_seat"], data["end_seat"])
         self.load_section(self.section)
 
-    def add_rows_range_dialog(self):
-        """Add multiple rows (numeric or single-letter ranges) each with a seat range."""
-        if not self.section:
-            QMessageBox.warning(self, "No section", "Please select/create a section first.")
-            return
-
-        start_row, ok = QInputDialog.getText(self, "Start row", "Start row (e.g., 1 or A):")
-        if not ok or not start_row:
-            return
-        end_row, ok = QInputDialog.getText(self, "End row", "End row (e.g., 10 or J):")
-        if not ok or not end_row:
-            return
-
-        # seat range inputs
-        start_seat, ok = QInputDialog.getInt(self, "Start seat", "Start seat number:", 1, 0)
-        if not ok:
-            return
-        end_seat, ok = QInputDialog.getInt(self, "End seat", "End seat number:", start_seat, 0)
-        if not ok:
-            return
-
-        # generate row list: support numeric ranges or single-letter ranges
-        rows_to_add = []
-        # check numeric
+    def _generate_rows(self, start_row, end_row):
+        """Generate inclusive row list for numeric or letter ranges."""
         if start_row.isdigit() and end_row.isdigit():
-            s = int(start_row)
-            e = int(end_row)
+            s, e = int(start_row), int(end_row)
             if s > e:
                 s, e = e, s
-            rows_to_add = [str(i) for i in range(s, e + 1)]
-        # check single-letter alpha range (A..Z or a..z)
+            return [str(i) for i in range(s, e + 1)]
         elif len(start_row) == 1 and len(end_row) == 1 and start_row.isalpha() and end_row.isalpha():
-            s_ord = ord(start_row.upper())
-            e_ord = ord(end_row.upper())
+            s_ord, e_ord = ord(start_row.upper()), ord(end_row.upper())
             if s_ord > e_ord:
                 s_ord, e_ord = e_ord, s_ord
-            rows_to_add = [chr(i) for i in range(s_ord, e_ord + 1)]
-        else:
-            # fallback: if start==end treat as single row, else error
-            if start_row == end_row:
-                rows_to_add = [start_row]
-            else:
-                QMessageBox.warning(self, "Unsupported range", "Rows must both be numeric (e.g., 1→10) or single letters (e.g., A→J).")
-                return
+            return [chr(i) for i in range(s_ord, e_ord + 1)]
+        elif start_row == end_row:
+            return [start_row]
+        return None
 
-        # add seats for each row
-        for r in rows_to_add:
-            self.section.add_seat_range(r, start_seat, end_seat)
-
-        self.load_section(self.section)
-
+    # ---- Seat editing actions ----
     def delete_selected(self):
         if not self.section:
             return
@@ -249,17 +282,18 @@ class SectionView(QWidget):
             QMessageBox.information(self, "No selection", "No seats selected.")
             return
 
-        choice, ok = QInputDialog.getItem(self, "Renumber", "Operation:", ["Set new row", "Set starting seat numbers (increment)"], 0, False)
+        choice, ok = QInputDialog.getItem(self, "Renumber", "Operation:",
+                                          ["Set new row", "Set starting seat numbers (increment)"], 0, False)
         if not ok:
             return
+
         if choice == "Set new row":
             new_row, ok = QInputDialog.getText(self, "New row", "New row name:")
             if not ok or not new_row:
                 return
             old_rows = set(it.row for it in selected)
             if len(old_rows) == 1:
-                old_row = next(iter(old_rows))
-                self.section.change_row_number(old_row, new_row)
+                self.section.change_row_number(next(iter(old_rows)), new_row)
             else:
                 for it in selected:
                     self.section.add_seat(new_row, it.seat_number)
@@ -277,12 +311,11 @@ class SectionView(QWidget):
             current += 1
         self.load_section(self.section)
 
+    # ---- Visual refresh ----
     def on_selection_changed(self):
-        """Update visuals of all seats whenever selection changes (rubber-band included)."""
         self.update_all_seat_visuals()
 
     def update_all_seat_visuals(self):
         for it in self.scene.items():
-            # items() returns items in descending Z-order; filter SeatItem instances
             if isinstance(it, SeatItem):
                 it.update_visual()
