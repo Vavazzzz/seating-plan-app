@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QPushButton, QInputDialog, QMessageBox,
     QGraphicsSimpleTextItem, QDialog, QFormLayout, QLineEdit, QSpinBox, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPen, QBrush, QPainter, QFont
 from ..models.section import Section
 
@@ -146,6 +146,7 @@ class SeatItem(QGraphicsRectItem):
 
 # ---------- SECTION VIEW ----------
 class SectionView(QWidget):
+    selectionChanged = pyqtSignal(int)  # emits count of selected seats
     def __init__(self, parent=None):
         super().__init__(parent)
         self.section: Section | None = None
@@ -319,3 +320,8 @@ class SectionView(QWidget):
         for it in self.scene.items():
             if isinstance(it, SeatItem):
                 it.update_visual()
+
+    def on_selection_changed(self):
+            selected = [it for it in self.scene.selectedItems() if isinstance(it, SeatItem)]
+            self.selectionChanged.emit(len(selected))  # notify main window
+            self.update_all_seat_visuals()

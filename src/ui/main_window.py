@@ -1,35 +1,45 @@
 # src/ui/main_window.py
 import sys
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QListWidget, QDockWidget, QInputDialog,
-    QFileDialog, QMessageBox, QWidget, QVBoxLayout, QPushButton
+    QApplication, QMainWindow, QDockWidget, QInputDialog, QFileDialog,
+    QMessageBox, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
+    QPushButton, QHeaderView, QStatusBar, QLabel
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
 from ..models.seating_plan import SeatingPlan
-from ..models.section import Section
-from .section_view import SectionView
 from ..utils.json_io import import_json_dialog, export_json_dialog
+from .section_view import SectionView
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Seating Plan Editor")
-        self.resize(1000, 700)
+        self.resize(1100, 750)
 
         self.seating_plan = SeatingPlan()
 
-        # central widget - section view
+        # --- Central Section View ---
         self.section_view = SectionView(self)
         self.setCentralWidget(self.section_view)
+        self.section_view.selectionChanged.connect(self.update_selected_count)
 
-        # dock - sections list with Add Section button on top
-        self.section_list = QListWidget()
+        # --- Dock: Sections table ---
+        self.section_table = QTableWidget(0, 2)
+        self.section_table.setHorizontalHeaderLabels(["Section", "Seats"])
+        self.section_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.section_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.section_table.verticalHeader().setVisible(False)
+        self.section_table.setSelectionBehavior(self.section_table.SelectionBehavior.SelectRows)
+        self.section_table.setEditTriggers(self.section_table.EditTrigger.NoEditTriggers)
+
+        # Add section button
         dock_widget_container = QWidget()
         dock_layout = QVBoxLayout()
         self.add_section_btn = QPushButton("➕ Add Section")
         dock_layout.addWidget(self.add_section_btn)
-        dock_layout.addWidget(self.section_list)
+        dock_layout.addWidget(self.section_table)
         dock_widget_container.setLayout(dock_layout)
 
         self.section_dock = QDockWidget("Sections", self)
@@ -37,10 +47,17 @@ class MainWindow(QMainWindow):
         self.section_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.section_dock)
 
-        # toolbar/menu
+        # --- Status Bar ---
+        self.status_bar = QStatusBar()
+        self.status_label = QLabel("Ready")
+        self.status_bar.addPermanentWidget(self.status_label)
+        self.setStatusBar(self.status_bar)
+
+        # --- Menus & Actions ---
         self._build_actions()
         self._connect_signals()
 
+    # ---------- Menu and Signals ----------
     def _build_actions(self):
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
@@ -79,7 +96,7 @@ class MainWindow(QMainWindow):
         rename_section_action.triggered.connect(self.rename_section_dialog)
         edit_menu.addAction(rename_section_action)
 
-        # View menu to toggle the sections panel
+        # View menu
         view_menu = menubar.addMenu("&View")
         self.toggle_sections_action = QAction("Sections Panel", self, checkable=True)
         self.toggle_sections_action.setChecked(True)
@@ -87,38 +104,38 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self.toggle_sections_action)
 
     def _connect_signals(self):
-        self.section_list.currentTextChanged.connect(self.on_section_selected)
-        self.section_list.itemDoubleClicked.connect(self.on_section_double_clicked)
         self.add_section_btn.clicked.connect(self.add_section_dialog)
+        self.section_table.cellClicked.connect(self.on_section_selected)
+        self.section_dock.visibilityChanged.connect(lambda visible: self.toggle_sections_action.setChecked(visible))
 
-    def toggle_sections_panel(self, checked):
-        if checked:
-            self.section_dock.show()
-        else:
-            self.section_dock.hide()
-
-        # keep checked state in sync in case user closes dock via close button
-        self.toggle_sections_action.setChecked(self.section_dock.isVisible())
-
-    def refresh_section_list(self):
-        self.section_list.clear()
-        for name in self.seating_plan.sections.keys():
-            self.section_list.addItem(name)
+    # ---------- Core logic ----------
+    def refresh_section_table(self):
+        """Refresh section list with seat counts."""
+        self.section_table.setRowCount(len(self.seating_plan.sections))
+        for row_idx, (name, section) in enumerate(self.seating_plan.sections.items()):
+            name_item = QTableWidgetItem(name)
+            count_item = QTableWidgetItem(str(len(section.seats)))
+            count_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.section_table.setItem(row_idx, 0, name_item)
+            self.section_table.setItem(row_idx, 1, count_item)
+        self.section_table.resizeColumnsToContents()
 
     def new_plan(self):
         self.seating_plan = SeatingPlan()
         self.section_view.load_section(None)
-        self.refresh_section_list()
+        self.refresh_section_table()
+        self.status_label.setText("🆕 New seating plan")
 
     def import_json(self):
         sp = import_json_dialog(self)
         if sp:
             self.seating_plan = sp
-            self.refresh_section_list()
-            QMessageBox.information(self, "Imported", "Seating plan imported.")
+            self.refresh_section_table()
+            self.status_label.setText("📂 Imported seating plan")
 
     def export_json(self):
         export_json_dialog(self, self.seating_plan)
+        self.status_label.setText("💾 Exported seating plan")
 
     def add_section_dialog(self):
         name, ok = QInputDialog.getText(self, "New section", "Section name:")
@@ -128,14 +145,15 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Exists", "Section with that name already exists.")
             return
         self.seating_plan.add_section(name)
-        self.refresh_section_list()
+        self.refresh_section_table()
+        self.status_label.setText(f"Added section '{name}'")
 
     def clone_section_dialog(self):
-        current = self.section_list.currentItem()
-        if not current:
+        row = self.section_table.currentRow()
+        if row < 0:
             QMessageBox.warning(self, "No selection", "Select a section to clone.")
             return
-        src_name = current.text()
+        src_name = self.section_table.item(row, 0).text()
         new_name, ok = QInputDialog.getText(self, "Clone section", "New section name:")
         if not ok or not new_name:
             return
@@ -143,24 +161,26 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Exists", "Section with that name already exists.")
             return
         self.seating_plan.clone_section(src_name, new_name)
-        self.refresh_section_list()
+        self.refresh_section_table()
+        self.status_label.setText(f"Cloned '{src_name}' to '{new_name}'")
 
     def delete_section(self):
-        current = self.section_list.currentItem()
-        if not current:
+        row = self.section_table.currentRow()
+        if row < 0:
             return
-        name = current.text()
+        name = self.section_table.item(row, 0).text()
         confirm = QMessageBox.question(self, "Delete", f"Delete section '{name}'?")
         if confirm == QMessageBox.StandardButton.Yes:
             self.seating_plan.delete_section(name)
-            self.refresh_section_list()
+            self.refresh_section_table()
             self.section_view.load_section(None)
+            self.status_label.setText(f"🗑 Deleted section '{name}'")
 
     def rename_section_dialog(self):
-        current = self.section_list.currentItem()
-        if not current:
+        row = self.section_table.currentRow()
+        if row < 0:
             return
-        old = current.text()
+        old = self.section_table.item(row, 0).text()
         new, ok = QInputDialog.getText(self, "Rename section", "New name:", text=old)
         if not ok or not new or new == old:
             return
@@ -168,26 +188,42 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Exists", "Section with that name already exists.")
             return
         self.seating_plan.rename_section(old, new)
-        self.refresh_section_list()
+        self.refresh_section_table()
+        self.status_label.setText(f"✏️ Renamed section '{old}' to '{new}'")
 
-    def on_section_selected(self, name):
-        if not name:
-            self.section_view.load_section(None)
+    def toggle_sections_panel(self, checked):
+        self.section_dock.setVisible(checked)
+
+    def on_section_selected(self, row, col):
+        """Triggered when a row is clicked in the table."""
+        name_item = self.section_table.item(row, 0)
+        if not name_item:
             return
-        section = self.seating_plan.sections.get(name)
+        section = self.seating_plan.sections.get(name_item.text())
         if section:
             self.section_view.load_section(section)
+            self.status_label.setText(f"📍 Loaded section '{name_item.text()}' ({len(section.seats)} seats)")
+            # reset selected counter
+            self.update_selected_count(0)
 
-    def on_section_double_clicked(self, item):
-        self.on_section_selected(item.text())
+    def update_selected_count(self, selected_count: int):
+        """Update selected seat count in status bar."""
+        section_name = "None"
+        total_seats = 0
+        if self.section_view.section:
+            section_name = self.section_view.section.name
+            total_seats = len(self.section_view.section.seats)
+        self.status_label.setText(
+            f"Section: {section_name}  |  Seats: {total_seats}  |  Selected: {selected_count}"
+        )
+
 
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    # keep toggle action state in sync if user manually closes the dock
-    window.section_dock.visibilityChanged.connect(lambda visible: window.toggle_sections_action.setChecked(visible))
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
