@@ -2,8 +2,9 @@
 import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QListWidget, QDockWidget, QInputDialog,
-    QFileDialog, QMessageBox, QAction
+    QFileDialog, QMessageBox, QWidget, QVBoxLayout, QPushButton
 )
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
 from ..models.seating_plan import SeatingPlan
 from ..models.section import Section
@@ -22,12 +23,19 @@ class MainWindow(QMainWindow):
         self.section_view = SectionView(self)
         self.setCentralWidget(self.section_view)
 
-        # dock - sections list
+        # dock - sections list with Add Section button on top
         self.section_list = QListWidget()
-        dock = QDockWidget("Sections", self)
-        dock.setWidget(self.section_list)
-        dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+        dock_widget_container = QWidget()
+        dock_layout = QVBoxLayout()
+        self.add_section_btn = QPushButton("➕ Add Section")
+        dock_layout.addWidget(self.add_section_btn)
+        dock_layout.addWidget(self.section_list)
+        dock_widget_container.setLayout(dock_layout)
+
+        self.section_dock = QDockWidget("Sections", self)
+        self.section_dock.setWidget(dock_widget_container)
+        self.section_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.section_dock)
 
         # toolbar/menu
         self._build_actions()
@@ -71,9 +79,26 @@ class MainWindow(QMainWindow):
         rename_section_action.triggered.connect(self.rename_section_dialog)
         edit_menu.addAction(rename_section_action)
 
+        # View menu to toggle the sections panel
+        view_menu = menubar.addMenu("&View")
+        self.toggle_sections_action = QAction("Sections Panel", self, checkable=True)
+        self.toggle_sections_action.setChecked(True)
+        self.toggle_sections_action.triggered.connect(self.toggle_sections_panel)
+        view_menu.addAction(self.toggle_sections_action)
+
     def _connect_signals(self):
         self.section_list.currentTextChanged.connect(self.on_section_selected)
         self.section_list.itemDoubleClicked.connect(self.on_section_double_clicked)
+        self.add_section_btn.clicked.connect(self.add_section_dialog)
+
+    def toggle_sections_panel(self, checked):
+        if checked:
+            self.section_dock.show()
+        else:
+            self.section_dock.hide()
+
+        # keep checked state in sync in case user closes dock via close button
+        self.toggle_sections_action.setChecked(self.section_dock.isVisible())
 
     def refresh_section_list(self):
         self.section_list.clear()
@@ -160,6 +185,8 @@ def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
+    # keep toggle action state in sync if user manually closes the dock
+    window.section_dock.visibilityChanged.connect(lambda visible: window.toggle_sections_action.setChecked(visible))
     sys.exit(app.exec())
 
 if __name__ == "__main__":
