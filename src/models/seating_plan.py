@@ -1,11 +1,10 @@
 # src/models/seating_plan.py
 from .section import Section
 import json
-from typing import Dict
+from typing import Dict, List
 
 class SeatingPlan:
     def __init__(self):
-        # map from section name -> Section
         self.sections: Dict[str, Section] = {}
 
     def add_section(self, name):
@@ -27,25 +26,25 @@ class SeatingPlan:
         if name in self.sections and new_name not in self.sections:
             cloned = self.sections[name].clone()
             cloned.name = new_name
-            # ensure keys keep consistent (keys are "row-seat" so fine)
             self.sections[new_name] = cloned
 
+    # ---------- JSON (new hierarchical format) ----------
     def to_dict(self):
-        return {name: section.to_dict() for name, section in self.sections.items()}
+        return {
+            "sections": [section.to_dict() for section in self.sections.values()]
+        }
 
     def from_dict(self, data):
         self.sections = {}
-        for name, section_data in data.items():
+        for section_data in data.get("sections", []):
             section = Section.from_dict(section_data)
-            # ensure name matches key
-            section.name = name
-            self.sections[name] = section
+            self.sections[section.name] = section
 
     def export_to_json(self, file_path):
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
 
     def import_from_json(self, file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             self.from_dict(data)

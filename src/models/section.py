@@ -1,12 +1,12 @@
 # src/models/section.py
-from typing import Dict
+from typing import Dict, List
 from .seat import Seat
 import copy
 
 class Section:
     def __init__(self, name: str):
         self.name = name
-        # seats keyed by "ROW-SEAT", values are Seat objects
+        # seats keyed by "ROW-SEAT"
         self.seats: Dict[str, Seat] = {}
 
     def add_seat(self, row: str, seat_number: str):
@@ -35,14 +35,12 @@ class Section:
         old_key = f"{row}-{old_seat_number}"
         if old_key in self.seats:
             seat = self.seats[old_key]
-            # update object fields
             seat.seat_number = new_seat_number
             new_key = f"{row}-{new_seat_number}"
             self.seats[new_key] = seat
             del self.seats[old_key]
 
     def change_row_number(self, old_row: str, new_row: str):
-        # Re-key all seats from old_row to new_row keeping seat numbers
         keys_to_change = [k for k in self.seats.keys() if k.startswith(f"{old_row}-")]
         for old_key in keys_to_change:
             seat = self.seats[old_key]
@@ -53,22 +51,36 @@ class Section:
             del self.seats[old_key]
 
     def clone(self):
-        # Deep copy a section and return a new Section object
         new_section = Section(self.name + "_copy")
-        # Deepcopy Seat objects
         for key, seat in self.seats.items():
             new_section.seats[key] = copy.deepcopy(seat)
         return new_section
 
+    # ---------- JSON (new hierarchical format) ----------
     def to_dict(self):
-        return {
-            "name": self.name,
-            "seats": {key: seat.to_dict() for key, seat in self.seats.items()}
-        }
+        # group seats by row
+        rows: Dict[str, List[Seat]] = {}
+        for seat in self.seats.values():
+            rows.setdefault(seat.row_number, []).append(seat)
+
+        rows_list = []
+        for row_number, seats in rows.items():
+            try:
+                seats_sorted = sorted(seats, key=lambda s: int(s.seat_number))
+            except ValueError:
+                seats_sorted = sorted(seats, key=lambda s: s.seat_number)
+            rows_list.append({
+                "row_number": row_number,
+                "seats": [{"seat_number": s.seat_number} for s in seats_sorted]
+            })
+
+        return {"name": self.name, "rows": rows_list}
 
     @classmethod
     def from_dict(cls, data):
-        section = cls(data['name'])
-        for seat_key, seat_data in data.get('seats', {}).items():
-            section.seats[seat_key] = Seat.from_dict(seat_data)
+        section = cls(data["name"])
+        for row_data in data.get("rows", []):
+            row = row_data["row_number"]
+            for seat_data in row_data.get("seats", []):
+                section.add_seat(row, str(seat_data["seat_number"]))
         return section
