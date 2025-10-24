@@ -1,71 +1,166 @@
-from tkinter import Tk, Frame, Label, Entry, Button, Listbox, Scrollbar, StringVar, Toplevel, END, messagebox
-import json
-from models.seating_plan import SeatingPlan
-from ui.section_view import SectionView
+# src/ui/main_window.py
+import sys
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QListWidget, QDockWidget, QInputDialog,
+    QFileDialog, QMessageBox, QAction
+)
+from PyQt6.QtCore import Qt
+from ..models.seating_plan import SeatingPlan
+from ..models.section import Section
+from .section_view import SectionView
+from ..utils.json_io import import_json_dialog, export_json_dialog
 
-class MainWindow:
-    def __init__(self, root):
-        self.plan = SeatingPlan()
-        self.root = root
-        self.root.title("Seating Plan Builder")
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Seating Plan Editor")
+        self.resize(1000, 700)
 
-        self.section_name = StringVar()
-        self.row = StringVar()
-        self.seat = StringVar()
+        self.seating_plan = SeatingPlan()
 
-        self.build_main_ui()
+        # central widget - section view
+        self.section_view = SectionView(self)
+        self.setCentralWidget(self.section_view)
 
-    def build_main_ui(self):
-        Frame(self.root).pack()
+        # dock - sections list
+        self.section_list = QListWidget()
+        dock = QDockWidget("Sections", self)
+        dock.setWidget(self.section_list)
+        dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
 
-        Label(self.root, text="Section Name:").pack()
-        Entry(self.root, textvariable=self.section_name).pack()
-        Button(self.root, text="Create Section", command=self.create_section).pack()
+        # toolbar/menu
+        self._build_actions()
+        self._connect_signals()
 
-        self.section_list = Listbox(self.root, width=40)
-        self.section_list.pack()
+    def _build_actions(self):
+        menubar = self.menuBar()
+        file_menu = menubar.addMenu("&File")
 
-        Button(self.root, text="View Section", command=self.view_section).pack()
-        Button(self.root, text="Delete Section", command=self.delete_section).pack()
-        Button(self.root, text="Export Plan", command=self.export_plan).pack()
-        Button(self.root, text="Import Plan", command=self.import_plan).pack()
+        new_action = QAction("New Plan", self)
+        new_action.triggered.connect(self.new_plan)
+        file_menu.addAction(new_action)
 
-    def create_section(self):
-        name = self.section_name.get().strip()
-        if name:
-            self.plan.add_section(name)
-            if name not in self.section_list.get(0, END):
-                self.section_list.insert(END, name)
-            self.section_name.set("")
+        import_action = QAction("Import JSON...", self)
+        import_action.triggered.connect(self.import_json)
+        file_menu.addAction(import_action)
+
+        export_action = QAction("Export JSON...", self)
+        export_action.triggered.connect(self.export_json)
+        file_menu.addAction(export_action)
+
+        file_menu.addSeparator()
+        exit_action = QAction("Exit", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+
+        edit_menu = menubar.addMenu("&Edit")
+        add_section_action = QAction("Add Section", self)
+        add_section_action.triggered.connect(self.add_section_dialog)
+        edit_menu.addAction(add_section_action)
+
+        clone_section_action = QAction("Clone Section", self)
+        clone_section_action.triggered.connect(self.clone_section_dialog)
+        edit_menu.addAction(clone_section_action)
+
+        delete_section_action = QAction("Delete Section", self)
+        delete_section_action.triggered.connect(self.delete_section)
+        edit_menu.addAction(delete_section_action)
+
+        rename_section_action = QAction("Rename Section", self)
+        rename_section_action.triggered.connect(self.rename_section_dialog)
+        edit_menu.addAction(rename_section_action)
+
+    def _connect_signals(self):
+        self.section_list.currentTextChanged.connect(self.on_section_selected)
+        self.section_list.itemDoubleClicked.connect(self.on_section_double_clicked)
+
+    def refresh_section_list(self):
+        self.section_list.clear()
+        for name in self.seating_plan.sections.keys():
+            self.section_list.addItem(name)
+
+    def new_plan(self):
+        self.seating_plan = SeatingPlan()
+        self.section_view.load_section(None)
+        self.refresh_section_list()
+
+    def import_json(self):
+        sp = import_json_dialog(self)
+        if sp:
+            self.seating_plan = sp
+            self.refresh_section_list()
+            QMessageBox.information(self, "Imported", "Seating plan imported.")
+
+    def export_json(self):
+        export_json_dialog(self, self.seating_plan)
+
+    def add_section_dialog(self):
+        name, ok = QInputDialog.getText(self, "New section", "Section name:")
+        if not ok or not name:
+            return
+        if name in self.seating_plan.sections:
+            QMessageBox.warning(self, "Exists", "Section with that name already exists.")
+            return
+        self.seating_plan.add_section(name)
+        self.refresh_section_list()
+
+    def clone_section_dialog(self):
+        current = self.section_list.currentItem()
+        if not current:
+            QMessageBox.warning(self, "No selection", "Select a section to clone.")
+            return
+        src_name = current.text()
+        new_name, ok = QInputDialog.getText(self, "Clone section", "New section name:")
+        if not ok or not new_name:
+            return
+        if new_name in self.seating_plan.sections:
+            QMessageBox.warning(self, "Exists", "Section with that name already exists.")
+            return
+        self.seating_plan.clone_section(src_name, new_name)
+        self.refresh_section_list()
 
     def delete_section(self):
-        sel = self.section_list.curselection()
-        if sel:
-            name = self.section_list.get(sel[0])
-            self.plan.delete_section(name)
-            self.section_list.delete(sel[0])
-
-    def view_section(self):
-        sel = self.section_list.curselection()
-        if not sel:
+        current = self.section_list.currentItem()
+        if not current:
             return
-        section_name = self.section_list.get(sel[0])
-        section_view = SectionView(self.root, self.plan, section_name)
-        section_view.open()
+        name = current.text()
+        confirm = QMessageBox.question(self, "Delete", f"Delete section '{name}'?")
+        if confirm == QMessageBox.StandardButton.Yes:
+            self.seating_plan.delete_section(name)
+            self.refresh_section_list()
+            self.section_view.load_section(None)
 
-    def export_plan(self):
-        with open("seating_plan.json", "w") as f:
-            json.dump(self.plan.to_dict(), f, indent=2)
-        messagebox.showinfo("Export", "Plan exported to seating_plan.json")
+    def rename_section_dialog(self):
+        current = self.section_list.currentItem()
+        if not current:
+            return
+        old = current.text()
+        new, ok = QInputDialog.getText(self, "Rename section", "New name:", text=old)
+        if not ok or not new or new == old:
+            return
+        if new in self.seating_plan.sections:
+            QMessageBox.warning(self, "Exists", "Section with that name already exists.")
+            return
+        self.seating_plan.rename_section(old, new)
+        self.refresh_section_list()
 
-    def import_plan(self):
-        try:
-            with open("seating_plan.json", "r") as f:
-                data = json.load(f)
-                self.plan.from_dict(data)
-                self.section_list.delete(0, END)
-                for name in self.plan.sections.keys():
-                    self.section_list.insert(END, name)
-            messagebox.showinfo("Import", "Plan imported successfully")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+    def on_section_selected(self, name):
+        if not name:
+            self.section_view.load_section(None)
+            return
+        section = self.seating_plan.sections.get(name)
+        if section:
+            self.section_view.load_section(section)
+
+    def on_section_double_clicked(self, item):
+        self.on_section_selected(item.text())
+
+def main():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()

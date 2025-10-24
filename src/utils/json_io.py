@@ -1,10 +1,17 @@
-from typing import Any, Dict
-import json
+# src/utils/json_io.py
+from PyQt6.QtWidgets import QFileDialog
+from typing import Optional
+from ..models.seating_plan import SeatingPlan
 
-def export_to_json(data: Dict[str, Any], filename: str) -> None:
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=2)
+def import_json_dialog(parent) -> Optional[SeatingPlan]:
+    path, _ = QFileDialog.getOpenFileName(parent, "Import seating plan JSON", "", "JSON Files (*.json);;All Files (*)")
+    if path:
+        sp = SeatingPlan()
+        sp.import_from_json(path)
+        return sp
+    return None
 
-def import_from_json(filename: str) -> Dict[str, Any]:
-    with open(filename, 'r') as f:
-        return json.load(f)
+def export_json_dialog(parent, seating_plan: SeatingPlan):
+    path, _ = QFileDialog.getSaveFileName(parent, "Export seating plan JSON", "", "JSON Files (*.json);;All Files (*)")
+    if path:
+        seating_plan.export_to_json(path)

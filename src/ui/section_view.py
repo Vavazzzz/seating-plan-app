@@ -1,69 +1,179 @@
-from tkinter import Frame, Label, Entry, Button, Listbox, Scrollbar, StringVar, Toplevel, END, messagebox
-from models.section import Section
+# src/ui/section_view.py
+from PyQt6.QtWidgets import (
+    QWidget, QGraphicsView, QGraphicsScene, QGraphicsRectItem,
+    QVBoxLayout, QHBoxLayout, QPushButton, QInputDialog, QMessageBox
+)
+from PyQt6.QtCore import QRectF, Qt, QPointF
+from PyQt6.QtGui import QPen, QBrush
+from ..models.section import Section
 
-class SectionView:
-    def __init__(self, master, section: Section, on_update):
-        self.master = master
+SEAT_WIDTH = 30
+SEAT_HEIGHT = 20
+SEAT_GAP_X = 6
+SEAT_GAP_Y = 8
+
+class SeatItem(QGraphicsRectItem):
+    def __init__(self, row: str, seat_number: str, x: float, y: float, w=SEAT_WIDTH, h=SEAT_HEIGHT):
+        super().__init__(0, 0, w, h)
+        self.setPos(x, y)
+        self.row = row
+        self.seat_number = seat_number
+        self.setFlags(QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setAcceptHoverEvents(True)
+        self.update_visual()
+
+    def update_visual(self):
+        pen = QPen(Qt.GlobalColor.black)
+        pen.setWidth(1)
+        self.setPen(pen)
+        if self.isSelected():
+            brush = QBrush(Qt.GlobalColor.cyan)
+        else:
+            brush = QBrush(Qt.GlobalColor.lightGray)
+        self.setBrush(brush)
+
+    def hoverEnterEvent(self, event):
+        # show tooltip
+        self.setToolTip(f"Row {self.row} Seat {self.seat_number}")
+        super().hoverEnterEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        # selection visual update happens in main loop; but ensure visual update
+        self.update_visual()
+
+class SectionView(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.section: Section | None = None
+
+        self.scene = QGraphicsScene()
+        self.view = QGraphicsView(self.scene)
+        self.view.setRenderHints(self.view.renderHints() | Qt.RenderHint.Antialiasing)
+        self.view.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+
+        # simple controls
+        btn_layout = QHBoxLayout()
+        self.add_range_btn = QPushButton("Add seat range")
+        self.delete_btn = QPushButton("Delete selected")
+        self.renumber_btn = QPushButton("Renumber selection")
+        btn_layout.addWidget(self.add_range_btn)
+        btn_layout.addWidget(self.delete_btn)
+        btn_layout.addWidget(self.renumber_btn)
+
+        self.add_range_btn.clicked.connect(self.add_seat_range_dialog)
+        self.delete_btn.clicked.connect(self.delete_selected)
+        self.renumber_btn.clicked.connect(self.renumber_selected_dialog)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.view)
+        layout.addLayout(btn_layout)
+        self.setLayout(layout)
+
+    def load_section(self, section: Section):
         self.section = section
-        self.on_update = on_update
+        self.scene.clear()
+        if not section:
+            return
+        # lay out seats grouped by row (rows are strings; we sort them)
+        rows = {}
+        for key, seat in section.seats.items():
+            rows.setdefault(seat.row_number, []).append(seat)
 
-        self.row_var = StringVar()
-        self.seat_var = StringVar()
-        self.selected_seats = []
+        # sort rows by natural order if numeric else lexicographic
+        def row_key(r):
+            try:
+                return int(r)
+            except:
+                return r
 
-        self.build_ui()
+        sorted_rows = sorted(rows.keys(), key=row_key)
 
-    def build_ui(self):
-        frame = Frame(self.master)
-        frame.pack()
+        y = 0
+        for row in sorted_rows:
+            seats = rows[row]
+            # try numeric sort of seat numbers
+            try:
+                seats_sorted = sorted(seats, key=lambda s: int(s.seat_number))
+            except:
+                seats_sorted = sorted(seats, key=lambda s: s.seat_number)
+            x = 0
+            for seat in seats_sorted:
+                item = SeatItem(row, seat.seat_number, x, y)
+                self.scene.addItem(item)
+                x += SEAT_WIDTH + SEAT_GAP_X
+            y += SEAT_HEIGHT + SEAT_GAP_Y
 
-        Label(frame, text=f"Section: {self.section.name}").grid(row=0, columnspan=4)
+        self.scene.setSceneRect(self.scene.itemsBoundingRect())
 
-        Label(frame, text="Row:").grid(row=1, column=0)
-        Entry(frame, textvariable=self.row_var).grid(row=1, column=1)
+    def add_seat_range_dialog(self):
+        if not self.section:
+            QMessageBox.warning(self, "No section", "Please select/create a section first.")
+            return
 
-        Label(frame, text="Seat:").grid(row=1, column=2)
-        Entry(frame, textvariable=self.seat_var).grid(row=1, column=3)
+        row, ok = QInputDialog.getText(self, "Row name", "Row name (e.g., A or 1):")
+        if not ok or not row:
+            return
+        start, ok = QInputDialog.getInt(self, "Start seat", "Start seat number:", 1, 0)
+        if not ok:
+            return
+        end, ok = QInputDialog.getInt(self, "End seat", "End seat number:", start, 0)
+        if not ok:
+            return
+        self.section.add_seat_range(str(row), start, end)
+        self.load_section(self.section)
 
-        Button(frame, text="Add Seat", command=self.add_seat).grid(row=2, column=0)
-        Button(frame, text="Delete Seat", command=self.delete_seat).grid(row=2, column=1)
-        Button(frame, text="Delete Row", command=self.delete_row).grid(row=2, column=2)
-        Button(frame, text="Rename Section", command=self.rename_section).grid(row=2, column=3)
+    def delete_selected(self):
+        if not self.section:
+            return
+        selected = [it for it in self.scene.selectedItems() if isinstance(it, SeatItem)]
+        if not selected:
+            QMessageBox.information(self, "No selection", "No seats selected.")
+            return
+        for it in selected:
+            self.section.delete_seat(it.row, it.seat_number)
+        self.load_section(self.section)
 
-        self.seat_list = Listbox(frame, selectmode='multiple', width=50)
-        self.seat_list.grid(row=3, columnspan=4)
+    def renumber_selected_dialog(self):
+        if not self.section:
+            return
+        selected = [it for it in self.scene.selectedItems() if isinstance(it, SeatItem)]
+        if not selected:
+            QMessageBox.information(self, "No selection", "No seats selected.")
+            return
 
-        self.update_seat_list()
+        # Ask for renumber pattern: either increment starting number or set new row number
+        choice, ok = QInputDialog.getItem(self, "Renumber", "Operation:", ["Set new row", "Set starting seat numbers (increment)"], 0, False)
+        if not ok:
+            return
+        if choice == "Set new row":
+            new_row, ok = QInputDialog.getText(self, "New row", "New row name:")
+            if not ok or not new_row:
+                return
+            # We change row for each selected seat keeping seat numbers
+            # Use change_row_number to rename an entire row if all seats belong to same old_row
+            old_rows = set(it.row for it in selected)
+            if len(old_rows) == 1:
+                old_row = next(iter(old_rows))
+                self.section.change_row_number(old_row, new_row)
+            else:
+                # change seats individually
+                for it in selected:
+                    # create new seat with same seat number in new_row
+                    self.section.add_seat(new_row, it.seat_number)
+                    self.section.delete_seat(it.row, it.seat_number)
+            self.load_section(self.section)
+            return
 
-    def add_seat(self):
-        row = self.row_var.get().strip().upper()
-        seat = self.seat_var.get().strip().upper()
-        if row and seat:
-            self.section.add_seat(row, seat)
-            self.update_seat_list()
-
-    def delete_seat(self):
-        selected_indices = self.seat_list.curselection()
-        for index in selected_indices[::-1]:  # Delete from the end to avoid index shifting
-            seat_info = self.seat_list.get(index).split()
-            row = seat_info[0]
-            seat = seat_info[1]
-            self.section.delete_seat(row, seat)
-        self.update_seat_list()
-
-    def delete_row(self):
-        row = self.row_var.get().strip().upper()
-        if row:
-            self.section.delete_row(row)
-            self.update_seat_list()
-
-    def rename_section(self):
-        new_name = self.row_var.get().strip()
-        if new_name:
-            self.section.rename(new_name)
-            self.on_update()  # Notify the main app to refresh the section list
-
-    def update_seat_list(self):
-        self.seat_list.delete(0, END)
-        for seat in self.section.seats:
-            self.seat_list.insert(END, f"{seat.row_number} {seat.seat_number}")
+        # increment starting seat numbers
+        start_num, ok = QInputDialog.getInt(self, "Start number", "Starting seat number:", 1, 0)
+        if not ok:
+            return
+        # sort selected items by x position so numbering flows left-to-right
+        selected_sorted = sorted(selected, key=lambda it: it.scenePos().x())
+        current = start_num
+        for it in selected_sorted:
+            # rename seat: change seat number within the same row
+            self.section.change_seat_number(it.row, it.seat_number, str(current))
+            current += 1
+        self.load_section(self.section)

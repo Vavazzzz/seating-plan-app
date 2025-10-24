@@ -1,3 +1,4 @@
+# src/models/seat.py
 class Seat:
     def __init__(self, row_number, seat_number):
         self.row_number = row_number
