@@ -63,7 +63,7 @@ class RangeInputDialog(QDialog):
             }
 
 class SeatItemRect:
-    WIDTH = 30
+    WIDTH = 20
     HEIGHT = 20
 
 

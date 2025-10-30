@@ -59,3 +59,4 @@ desktop.ini
 *.swp
 *.swo
 .ipynb_checkpoints/
+*.json
