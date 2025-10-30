@@ -24,6 +24,8 @@ class MainWindow(QMainWindow):
         self.section_view = SectionView(self)
         self.setCentralWidget(self.section_view)
         self.section_view.selectionChanged.connect(self.update_selected_count)
+        self.section_view.sectionModified.connect(self.refresh_section_table)
+
 
         # --- Dock: Sections table ---
         self.section_table = QTableWidget(0, 2)
@@ -33,6 +35,7 @@ class MainWindow(QMainWindow):
         self.section_table.verticalHeader().setVisible(False)
         self.section_table.setSelectionBehavior(self.section_table.SelectionBehavior.SelectRows)
         self.section_table.setEditTriggers(self.section_table.EditTrigger.NoEditTriggers)
+        
 
         # Add section button
         dock_widget_container = QWidget()

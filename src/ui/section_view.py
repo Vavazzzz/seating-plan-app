@@ -173,8 +173,13 @@ class SectionView(QWidget):
         seats_by_row = {}
         for seat in section.seats.values():
             seats_by_row.setdefault(seat.row_number, []).append(seat)
+        def _row_sort_key(value: str):
+            try:
+                return int(value)
+            except ValueError:
+                return value
+        sorted_rows = sorted(seats_by_row.keys(), key=_row_sort_key)
 
-        sorted_rows = sorted(seats_by_row.keys(), key=lambda x: str(x))
         y = 0
         for row in sorted_rows:
             seats = seats_by_row[row]
