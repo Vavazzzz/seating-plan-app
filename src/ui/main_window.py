@@ -7,9 +7,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
+from string import ascii_uppercase
 from ..models.seating_plan import SeatingPlan
 from ..utils.json_io import import_json_dialog, export_json_dialog
-from .section_view import SectionView
+from .section_view import SectionView, RangeInputDialog
 
 
 class MainWindow(QMainWindow):
@@ -144,11 +145,58 @@ class MainWindow(QMainWindow):
         name, ok = QInputDialog.getText(self, "New section", "Section name:")
         if not ok or not name:
             return
+        name = name.strip()
+        if not name:
+            QMessageBox.warning(self, "Invalid name", "Section name cannot be empty.")
+            return
         if name in self.seating_plan.sections:
             QMessageBox.warning(self, "Exists", "Section with that name already exists.")
             return
+
+        # create section
         self.seating_plan.add_section(name)
+
+        # Load the newly created section into the view and immediately open the row-range dialog
+        section_obj = self.seating_plan.sections.get(name)
+        if section_obj:
+            # ensure the view is operating on the section we just created
+            self.section_view.load_section(section_obj)
+
+            # call the SectionView dialog to add rows/seats (fallback to simple inputs on error)
+            try:
+                self.section_view.add_row_range_dialog()
+            except Exception as e:
+                QMessageBox.warning(self, "Add rows", f"Could not open advanced dialog: {e}")
+                sr, ok1 = QInputDialog.getText(self, "Start row", "Start row label:")
+                if ok1:
+                    er, ok2 = QInputDialog.getText(self, "End row", "End row label:")
+                    if ok2:
+                        ss, ok3 = QInputDialog.getInt(self, "Start seat", "Start seat number:", 1, 1)
+                        if ok3:
+                            es, ok4 = QInputDialog.getInt(self, "End seat", "End seat number:", 1, 1)
+                            if ok4:
+                                # add ranges directly to model
+                                try:
+                                    s = int(sr); e = int(er)
+                                    rows = [str(i) for i in range(min(s, e), max(s, e) + 1)]
+                                except ValueError:
+                                    try:
+                                        si = ascii_uppercase.index(sr.upper())
+                                        ei = ascii_uppercase.index(er.upper())
+                                        rows = list(ascii_uppercase[min(si, ei):max(si, ei) + 1])
+                                    except Exception:
+                                        rows = []
+                                for r in rows:
+                                    self.seating_plan.sections[name].add_seat_range(r, min(ss, es), max(ss, es))
+
+        # refresh UI to show added rows/seats
         self.refresh_section_table()
+        # refresh UI and load created section
+        self.refresh_section_table()
+        # automatically load the new section in the view
+        section_obj = self.seating_plan.sections.get(name)
+        if section_obj:
+            self.section_view.load_section(section_obj)
         self.status_label.setText(f"Added section '{name}'")
 
     def clone_section_dialog(self):
