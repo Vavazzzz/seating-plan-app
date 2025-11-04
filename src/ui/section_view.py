@@ -190,9 +190,16 @@ class SectionView(QWidget):
         if not section:
             return
 
+        # Group seats by row
         seats_by_row = {}
         for seat in section.seats.values():
             seats_by_row.setdefault(seat.row_number, []).append(seat)
+
+        # Determine all seat numbers used across the section
+        all_seat_numbers = sorted(
+            {s.seat_number for s in section.seats.values()},
+            key=lambda n: int(n) if str(n).isdigit() else str(n)
+        )
 
         def _row_sort_key(value: str):
             try:
@@ -202,25 +209,27 @@ class SectionView(QWidget):
 
         sorted_rows = sorted(seats_by_row.keys(), key=_row_sort_key)
 
+        # Layout constants
+        x_spacing = SeatItemRect.WIDTH + 5
+        y_spacing = SeatItemRect.HEIGHT + 10
+
         y = 0
         for row in sorted_rows:
-            seats = seats_by_row[row]
-            try:
-                seats_sorted = sorted(seats, key=lambda s: int(s.seat_number))
-            except ValueError:
-                seats_sorted = sorted(seats, key=lambda s: s.seat_number)
-            x = 0
+            seats = {s.seat_number: s for s in seats_by_row[row]}
             row_label = self.scene.addSimpleText(str(row))
             row_label.setPos(-40, y)
-            for seat in seats_sorted:
-                item = SeatItem(row, seat.seat_number)
-                item.setPos(x, y)
-                self.scene.addItem(item)
-                x += SeatItemRect.WIDTH + 5
-            y += SeatItemRect.HEIGHT + 10
+            for idx, seat_num in enumerate(all_seat_numbers):
+                if seat_num in seats:
+                    seat = seats[seat_num]
+                    x = idx * x_spacing
+                    item = SeatItem(row, seat.seat_number)
+                    item.setPos(x, y)
+                    self.scene.addItem(item)
+            y += y_spacing
 
         self.scene.setSceneRect(self.scene.itemsBoundingRect())
         self.position_zoom_overlay()
+
 
     # ---------- Seat Manipulation ----------
     def add_seat_range_dialog(self):
