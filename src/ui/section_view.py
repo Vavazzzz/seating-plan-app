@@ -1,13 +1,12 @@
 # src/ui/section_view.py
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QVBoxLayout, QHBoxLayout, QPushButton,
-    QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame, QInputDialog
+    QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame, QInputDialog,
+    QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QSpinBox
 )
-from PyQt6.QtGui import QBrush, QPen, QPainter
+from PyQt6.QtGui import QBrush, QPen, QPainter, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from ..models.section import Section
-
-from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QSpinBox
 from string import ascii_uppercase
 
 
@@ -62,6 +61,7 @@ class RangeInputDialog(QDialog):
                 "end_seat": self.end_seat_spin.value(),
             }
 
+
 class SeatItemRect:
     WIDTH = 20
     HEIGHT = 20
@@ -87,7 +87,8 @@ class SeatItem(QGraphicsRectItem):
 
 class SectionView(QWidget):
     selectionChanged = pyqtSignal(int)
-    sectionModified = pyqtSignal()
+    aboutToModify = pyqtSignal()   # emitted before mutating operations to allow snapshots
+    sectionModified = pyqtSignal()  # emitted after mutation to refresh UI
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -97,9 +98,13 @@ class SectionView(QWidget):
 
         # ---- Top control buttons ----
         self.btn_add_seat_range = QPushButton("➕ Add Seat Range")
+        self.btn_add_seat_range.setToolTip("Add seat range (opens a single dialog).")
         self.btn_add_row_range = QPushButton("➕ Add Row Range")
+        self.btn_add_row_range.setToolTip("Add multiple rows with seat ranges.")
         self.btn_delete_seat = QPushButton("🗑 Delete Seats")
+        self.btn_delete_seat.setToolTip("Delete selected seats (Del).")
         self.btn_delete_row = QPushButton("🗑 Delete Rows")
+        self.btn_delete_row.setToolTip("Delete selected rows (by selecting seats in those rows).")
 
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.btn_add_seat_range)
@@ -148,8 +153,23 @@ class SectionView(QWidget):
         self.btn_delete_seat.clicked.connect(self.delete_selected_seats)
         self.btn_delete_row.clicked.connect(self.delete_selected_rows)
 
+        # keyboard shortcuts local to section view
+        self._install_shortcuts()
+
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
+
+    # ---------- Shortcuts ----------
+    def _install_shortcuts(self):
+        # Select All
+        QShortcut(QKeySequence("Ctrl+A"), self, activated=self.select_all_seats).setContext(Qt.ShortcutContext.WidgetShortcut)
+        # Delete selected
+        QShortcut(QKeySequence("Delete"), self, activated=self.delete_selected_seats).setContext(Qt.ShortcutContext.WidgetShortcut)
+        # Reset zoom
+        QShortcut(QKeySequence("Ctrl+0"), self, activated=self.reset_zoom).setContext(Qt.ShortcutContext.WidgetShortcut)
+        # Zoom in/out (Ctrl + '=' / Ctrl + '-')
+        QShortcut(QKeySequence("Ctrl+="), self, activated=self.zoom_in).setContext(Qt.ShortcutContext.WidgetShortcut)
+        QShortcut(QKeySequence("Ctrl+-"), self, activated=self.zoom_out).setContext(Qt.ShortcutContext.WidgetShortcut)
 
     # ---------- Overlay positioning ----------
     def eventFilter(self, obj, event):
@@ -173,11 +193,13 @@ class SectionView(QWidget):
         seats_by_row = {}
         for seat in section.seats.values():
             seats_by_row.setdefault(seat.row_number, []).append(seat)
+
         def _row_sort_key(value: str):
             try:
                 return int(value)
             except ValueError:
                 return value
+
         sorted_rows = sorted(seats_by_row.keys(), key=_row_sort_key)
 
         y = 0
@@ -210,6 +232,8 @@ class SectionView(QWidget):
         data = dialog.get_values()
         if not data["row"]:
             return
+        # notify about to modify (so undo snapshot can be taken)
+        self.aboutToModify.emit()
         self.section.add_seat_range(data["row"], data["start_seat"], data["end_seat"])
         self.load_section(self.section)
         self.sectionModified.emit()
@@ -234,19 +258,24 @@ class SectionView(QWidget):
                 ascii_uppercase.index(data["end_row"].upper()) + 1
             ]
 
+        # notify before bulk modification
+        self.aboutToModify.emit()
         for r in rows:
             self.section.add_seat_range(r, data["start_seat"], data["end_seat"])
 
         self.load_section(self.section)
         self.sectionModified.emit()
 
-
     def delete_selected_seats(self):
         if not self.section:
             return
-        for item in self.scene.selectedItems():
-            if isinstance(item, SeatItem):
-                self.section.delete_seat(item.row, str(item.seat))
+        selected = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
+        if not selected:
+            return
+        # push snapshot
+        self.aboutToModify.emit()
+        for item in selected:
+            self.section.delete_seat(item.row, str(item.seat))
         self.load_section(self.section)
         self.sectionModified.emit()
 
@@ -254,6 +283,10 @@ class SectionView(QWidget):
         if not self.section:
             return
         rows = {item.row for item in self.scene.selectedItems() if isinstance(item, SeatItem)}
+        if not rows:
+            return
+        # push snapshot
+        self.aboutToModify.emit()
         for r in rows:
             self.section.delete_row(r)
         self.load_section(self.section)
@@ -266,6 +299,26 @@ class SectionView(QWidget):
             if isinstance(it, SeatItem):
                 it.update_visual()
         self.selectionChanged.emit(len(selected))
+
+    def select_all_seats(self):
+        for it in self.scene.items():
+            if isinstance(it, SeatItem):
+                it.setSelected(True)
+        self.on_selection_changed()
+
+    # ---------- Zoom helpers ----------
+    def reset_zoom(self):
+        self.view.set_zoom(1.0)
+        self.zoom_slider.setValue(100)
+        self.zoom_label.setText("100%")
+
+    def zoom_in(self):
+        v = min(400, self.zoom_slider.value() + 10)
+        self.zoom_slider.setValue(v)
+
+    def zoom_out(self):
+        v = max(25, self.zoom_slider.value() - 10)
+        self.zoom_slider.setValue(v)
 
     # ---------- Zoom ----------
     def on_zoom_slider_changed(self, value):
