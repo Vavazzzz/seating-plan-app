@@ -1,4 +1,4 @@
-from models.section import Section
+from src.models.section import Section
 import unittest
 
 class TestSection(unittest.TestCase):

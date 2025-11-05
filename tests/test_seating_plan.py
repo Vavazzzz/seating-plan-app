@@ -1,6 +1,6 @@
-from models.seating_plan import SeatingPlan
-from models.section import Section
-from models.seat import Seat
+from src.models.seating_plan import SeatingPlan
+from src.models.section import Section
+from src.models.seat import Seat
 import unittest
 
 class TestSeatingPlan(unittest.TestCase):
