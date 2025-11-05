@@ -60,3 +60,4 @@ desktop.ini
 *.swo
 .ipynb_checkpoints/
 *.json
+*.seatproj

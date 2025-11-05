@@ -89,9 +89,9 @@ class MainWindow(QMainWindow):
         save_action.triggered.connect(self.save_project_dialog)
         file_menu.addAction(save_action)
 
-        import_action = QAction("Import JSON...", self)
+        import_action = QAction("Import seating plan...", self)
         import_action.setShortcut("Ctrl+O")
-        import_action.setToolTip("Import seating plan JSON (Ctrl+O)")
+        import_action.setToolTip("Import seating plan (Ctrl+O)")
         import_action.triggered.connect(self.import_json)
         file_menu.addAction(import_action)
 

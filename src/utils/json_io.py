@@ -22,7 +22,7 @@ def import_json_dialog(parent) -> Optional[SeatingPlan]:
         parent,
         "Import seating plan JSON",
         start_dir,
-        "JSON Files (*.json);;All Files (*)"
+        "JSON Files (*.json; *.seatproj);;All Files (*)"
     )
     if path:
         sp = SeatingPlan()
