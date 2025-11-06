@@ -21,7 +21,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Seating Plan Editor")
         self.resize(1100, 750)
 
-        self.seating_plan = SeatingPlan()
+        self.seating_plan = SeatingPlan(name="Untitled")
         self.current_project = None
 
         # Undo/Redo stacks (store deep copies of SeatingPlan)
@@ -79,7 +79,7 @@ class MainWindow(QMainWindow):
         new_action = QAction("New Project", self)
         new_action.setShortcut("Ctrl+N")
         new_action.setToolTip("Create a new project (Ctrl+N)")
-        new_action.triggered.connect(self.new_project)
+        new_action.triggered.connect(self.new_project_dialog)
         file_menu.addAction(new_action)
 
         # Save project (Ctrl+S)
@@ -236,18 +236,24 @@ class MainWindow(QMainWindow):
             self.section_table.setItem(row_idx, 1, count_item)
         self.section_table.resizeColumnsToContents()
 
-    def new_project(self):
+    def new_project(self, name):
         # new project resets plan; push snapshot first
         self.push_undo_snapshot("create new project")
-        self.seating_plan = SeatingPlan()
+        self.seating_plan = SeatingPlan(name)
         self.current_project = None
         self.section_view.load_section(None)
         self.refresh_section_table()
         self.status_label.setText("🆕 New project created")
 
+    def new_project_dialog(self):
+        name, ok = QInputDialog.getText(self, "New Project", "Project name:")
+        if not ok or not name:
+            return
+        self.new_project(name.strip())
+
     def save_project_dialog(self):
         # suggest filename using utils json helper behavior
-        suggested = "seating_plan.seatproj"
+        suggested = f"{self.seating_plan.name.replace(' ', '_').lower()}.seatproj"
         path, _ = QFileDialog.getSaveFileName(self, "Save Project", suggested, "SeatProj (*.seatproj);;JSON (*.json);;All Files (*)")
         if not path:
             return

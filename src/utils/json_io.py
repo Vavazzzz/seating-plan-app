@@ -8,11 +8,9 @@ _last_dir: Path | None = None  # remembers last used folder
 
 def _get_suggested_filename(seating_plan: SeatingPlan) -> str:
     """Generate a filename suggestion based on plan content."""
-    if seating_plan.sections:
-        first_section = next(iter(seating_plan.sections.values()))
-        # derive a name from the first section (e.g., "Section A" -> "section_a.json")
-        base_name = first_section.name.lower().replace(" ", "_")
-        return f"{base_name}_plan.json"
+    if seating_plan:
+        suggested_name = seating_plan.name.strip().replace(" ", "_").lower()
+        return f"{suggested_name}.json"
     return "seating_plan.json"
 
 def import_project_dialog(parent) -> Optional[SeatingPlan]:

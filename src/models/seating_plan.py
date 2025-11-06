@@ -5,8 +5,9 @@ from typing import Dict
 from .section import Section
 
 class SeatingPlan:
-    def __init__(self):
+    def __init__(self, name):
         self.sections: Dict[str, Section] = {}
+        self.name = name
 
     def add_section(self, name):
         if name not in self.sections:
