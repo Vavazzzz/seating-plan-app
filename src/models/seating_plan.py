@@ -1,7 +1,8 @@
 # src/models/seating_plan.py
-from .section import Section
 import json
-from typing import Dict, List
+from openpyxl import Workbook
+from typing import Dict
+from .section import Section
 
 class SeatingPlan:
     def __init__(self):
@@ -48,3 +49,32 @@ class SeatingPlan:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             self.from_dict(data)
+
+    def export_to_excel(self, file_path):
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Seating Plan"
+
+        headers = ["section", "row", "seat_number", "seat_name", "capacity", "type"]
+        ws.append(headers)
+
+        # Iterate through sections and rows
+        for section in self.sections.values():
+            rows = {}
+            for seat in section.seats.values():
+                rows.setdefault(seat.row_number, []).append(str(seat.seat_number))
+
+            for row_number, seat_list in rows.items():
+                seat_list_sorted = sorted(seat_list, key=lambda x: int(x) if x.isdigit() else x)
+                ws.append([
+                    section.name,             # section
+                    row_number,               # rows
+                    ",".join(seat_list_sorted),# seats
+                    section.name,             # secnam
+                    "",                       # capacity (blank)
+                    1                         # type (always 1)
+                ])
+
+
+        wb.save(file_path)

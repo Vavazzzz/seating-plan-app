@@ -1,7 +1,6 @@
 # src/ui/main_window.py
 import sys
 import copy
-from openpyxl import Workbook
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QDockWidget, QInputDialog, QFileDialog,
@@ -12,7 +11,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
 from string import ascii_uppercase
 from ..models.seating_plan import SeatingPlan
-from ..utils.json_io import import_project_dialog, export_project_dialog
+from ..utils.json_io import import_project_dialog, export_project_dialog, export_to_excel_dialog
 from .section_view import SectionView, RangeInputDialog
 
 
@@ -275,47 +274,8 @@ class MainWindow(QMainWindow):
         self.status_label.setText("💾 Exported seating plan")
 
     def export_to_excel(self):
-        """Export the current seating plan to an Excel file."""
-        if not hasattr(self, "seating_plan") or not self.seating_plan:
-            QMessageBox.warning(self, "No seating plan", "There is no seating plan to export.")
-            return
-
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Export to Excel", "", "Excel Files (*.xlsx)"
-        )
-        if not file_path:
-            return
-
-        # Create Excel workbook
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Inventory"
-
-        headers = ["section", "rows", "seats", "secnam", "capacity", "type"]
-        ws.append(headers)
-
-        # Iterate through sections and rows
-        for section in self.seating_plan.sections.values():
-            rows = {}
-            for seat in section.seats.values():
-                rows.setdefault(seat.row_number, []).append(str(seat.seat_number))
-
-            for row_number, seat_list in rows.items():
-                seat_list_sorted = sorted(seat_list, key=lambda x: int(x) if x.isdigit() else x)
-                ws.append([
-                    section.name,             # section
-                    row_number,               # rows
-                    ",".join(seat_list_sorted),# seats
-                    section.name,             # secnam
-                    "",                       # capacity (blank)
-                    1                         # type (always 1)
-                ])
-
-        try:
-            wb.save(file_path)
-            self.statusBar().showMessage(f"📊 Exported to {file_path}", 5000)
-        except Exception as e:
-            QMessageBox.critical(self, "Export failed", f"Could not save file:\n{e}")
+        export_to_excel_dialog(self, self.seating_plan)
+        self.status_label.setText("💾 Exported seating plan to Excel")
 
     def add_section_dialog(self):
         name, ok = QInputDialog.getText(self, "New section", "Section name:")

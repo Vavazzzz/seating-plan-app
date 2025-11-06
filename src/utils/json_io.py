@@ -53,4 +53,20 @@ def export_project_dialog(parent, seating_plan: SeatingPlan):
 
 def export_to_excel_dialog(parent, seating_plan: SeatingPlan):
     global _last_dir
-    pass
+    start_dir = str(_last_dir) if _last_dir else ""
+    suggested_name = _get_suggested_filename(seating_plan).replace(".json", ".xlsx")
+    path, _ = QFileDialog.getSaveFileName(
+        parent,
+        "Export seating plan to Excel",
+        str(Path(start_dir) / suggested_name),
+        "Excel Files (*.xlsx);;All Files (*)"
+    )
+    if not path:
+        return
+
+    # ensure .xlsx extension
+    if not path.lower().endswith(".xlsx"):
+        path += ".xlsx"
+
+    seating_plan.export_to_excel(path)
+    _last_dir = Path(path).parent
