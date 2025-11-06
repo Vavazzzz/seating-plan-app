@@ -36,8 +36,6 @@ python src/gui_app.py
 ```
 seating-plan-app
 ├── src
-│   ├── gui_app.py          # Main GUI application
-│   ├── seatingplan.py      # SeatingPlan class definition
 │   ├── ui
 │   │   ├── __init__.py     # UI module initialization
 │   │   ├── main_window.py   # Main window layout and event handling
@@ -48,8 +46,9 @@ seating-plan-app
 │   │   ├── section.py       # Section model
 │   │   └── seat.py          # Seat model
 │   └── utils
-│       ├── __init__.py     # Utils module initialization
-│       └── json_io.py       # JSON import/export functions
+│       ├── __init__.py          # Utils module initialization
+|       ├── alphanum_handler.py  # Handling of alphanumeric ranges
+│       └── json_io.py           # Project import/export functions
 ├── examples
 │   └── seating_plan_example.json  # Example seating plan
 ├── tests
