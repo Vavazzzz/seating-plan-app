@@ -15,7 +15,7 @@ def _get_suggested_filename(seating_plan: SeatingPlan) -> str:
         return f"{base_name}_plan.json"
     return "seating_plan.json"
 
-def import_json_dialog(parent) -> Optional[SeatingPlan]:
+def import_project_dialog(parent) -> Optional[SeatingPlan]:
     global _last_dir
     start_dir = str(_last_dir) if _last_dir else ""
     path, _ = QFileDialog.getOpenFileName(
@@ -31,7 +31,7 @@ def import_json_dialog(parent) -> Optional[SeatingPlan]:
         return sp
     return None
 
-def export_json_dialog(parent, seating_plan: SeatingPlan):
+def export_project_dialog(parent, seating_plan: SeatingPlan):
     global _last_dir
     start_dir = str(_last_dir) if _last_dir else ""
     suggested_name = _get_suggested_filename(seating_plan)

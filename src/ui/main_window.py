@@ -11,7 +11,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
 from string import ascii_uppercase
 from ..models.seating_plan import SeatingPlan
-from ..utils.json_io import import_json_dialog, export_json_dialog
+from ..utils.json_io import import_project_dialog, export_project_dialog
 from .section_view import SectionView, RangeInputDialog
 
 
@@ -92,12 +92,12 @@ class MainWindow(QMainWindow):
         import_action = QAction("Import seating plan...", self)
         import_action.setShortcut("Ctrl+O")
         import_action.setToolTip("Import seating plan (Ctrl+O)")
-        import_action.triggered.connect(self.import_json)
+        import_action.triggered.connect(self.import_project)
         file_menu.addAction(import_action)
 
         export_action = QAction("Export JSON...", self)
         export_action.setToolTip("Export seating plan JSON")
-        export_action.triggered.connect(self.export_json)
+        export_action.triggered.connect(self.export_project)
         file_menu.addAction(export_action)
 
         file_menu.addSeparator()
@@ -108,6 +108,7 @@ class MainWindow(QMainWindow):
         edit_menu = menubar.addMenu("&Edit")
         add_section_action = QAction("Add Section", self)
         add_section_action.setToolTip("Add a new section")
+        add_section_action.setShortcut("Ctrl+B")
         add_section_action.triggered.connect(self.add_section_dialog)
         edit_menu.addAction(add_section_action)
 
@@ -251,17 +252,17 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Save failed", str(e))
 
-    def import_json(self):
+    def import_project(self):
         # import JSON as a new plan - push undo first
         self.push_undo_snapshot("import")
-        sp = import_json_dialog(self)
+        sp = import_project_dialog(self)
         if sp:
             self.seating_plan = sp
             self.refresh_section_table()
             self.status_label.setText("📂 Imported seating plan")
 
-    def export_json(self):
-        export_json_dialog(self, self.seating_plan)
+    def export_project(self):
+        export_project_dialog(self, self.seating_plan)
         self.status_label.setText("💾 Exported seating plan")
 
     def add_section_dialog(self):

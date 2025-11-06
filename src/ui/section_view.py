@@ -113,6 +113,10 @@ class SectionView(QWidget):
         controls_layout.addWidget(self.btn_delete_row)
         controls_layout.addStretch()
 
+        # ---- Buttons shortcuts ----
+        self.btn_delete_seat.setShortcut("Del")
+        self.btn_delete_row.setShortcut("Shift+Del")
+
         # ---- Main layout ----
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -153,23 +157,26 @@ class SectionView(QWidget):
         self.btn_delete_seat.clicked.connect(self.delete_selected_seats)
         self.btn_delete_row.clicked.connect(self.delete_selected_rows)
 
-        # keyboard shortcuts local to section view
-        self._install_shortcuts()
-
+        
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
 
-    # ---------- Shortcuts ----------
+    """
+    # keyboard shortcuts local to section view
+    self._install_shortcuts()
+        
+                # ---------- Shortcuts ----------
     def _install_shortcuts(self):
         # Select All
         QShortcut(QKeySequence("Ctrl+A"), self, activated=self.select_all_seats).setContext(Qt.ShortcutContext.WidgetShortcut)
         # Delete selected
-        QShortcut(QKeySequence("Delete"), self, activated=self.delete_selected_seats).setContext(Qt.ShortcutContext.WidgetShortcut)
+        QShortcut(QKeySequence("Ctrl+D"), self, activated=self.delete_selected_seats).setContext(Qt.ShortcutContext.WidgetShortcut)
         # Reset zoom
         QShortcut(QKeySequence("Ctrl+0"), self, activated=self.reset_zoom).setContext(Qt.ShortcutContext.WidgetShortcut)
         # Zoom in/out (Ctrl + '=' / Ctrl + '-')
         QShortcut(QKeySequence("Ctrl+="), self, activated=self.zoom_in).setContext(Qt.ShortcutContext.WidgetShortcut)
         QShortcut(QKeySequence("Ctrl+-"), self, activated=self.zoom_out).setContext(Qt.ShortcutContext.WidgetShortcut)
+    """
 
     # ---------- Overlay positioning ----------
     def eventFilter(self, obj, event):
