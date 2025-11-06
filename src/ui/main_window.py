@@ -1,6 +1,7 @@
 # src/ui/main_window.py
 import sys
 import copy
+from openpyxl import Workbook
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QDockWidget, QInputDialog, QFileDialog,
@@ -89,16 +90,24 @@ class MainWindow(QMainWindow):
         save_action.triggered.connect(self.save_project_dialog)
         file_menu.addAction(save_action)
 
+        # Import seating plan (Ctrl+O)
         import_action = QAction("Import seating plan...", self)
         import_action.setShortcut("Ctrl+O")
         import_action.setToolTip("Import seating plan (Ctrl+O)")
         import_action.triggered.connect(self.import_project)
         file_menu.addAction(import_action)
 
+        # Export seating plan to JSON
         export_action = QAction("Export JSON...", self)
         export_action.setToolTip("Export seating plan JSON")
         export_action.triggered.connect(self.export_project)
         file_menu.addAction(export_action)
+
+        # Export seating plan to Excel
+        export_excel_action = QAction("Export Excel...", self)
+        export_excel_action.setToolTip("Export seating plan to Excel")
+        export_excel_action.triggered.connect(self.export_to_excel)
+        file_menu.addAction(export_excel_action)
 
         file_menu.addSeparator()
         exit_action = QAction("Exit", self)
@@ -264,6 +273,49 @@ class MainWindow(QMainWindow):
     def export_project(self):
         export_project_dialog(self, self.seating_plan)
         self.status_label.setText("💾 Exported seating plan")
+
+    def export_to_excel(self):
+        """Export the current seating plan to an Excel file."""
+        if not hasattr(self, "seating_plan") or not self.seating_plan:
+            QMessageBox.warning(self, "No seating plan", "There is no seating plan to export.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export to Excel", "", "Excel Files (*.xlsx)"
+        )
+        if not file_path:
+            return
+
+        # Create Excel workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Inventory"
+
+        headers = ["section", "rows", "seats", "secnam", "capacity", "type"]
+        ws.append(headers)
+
+        # Iterate through sections and rows
+        for section in self.seating_plan.sections.values():
+            rows = {}
+            for seat in section.seats.values():
+                rows.setdefault(seat.row_number, []).append(str(seat.seat_number))
+
+            for row_number, seat_list in rows.items():
+                seat_list_sorted = sorted(seat_list, key=lambda x: int(x) if x.isdigit() else x)
+                ws.append([
+                    section.name,             # section
+                    row_number,               # rows
+                    ",".join(seat_list_sorted),# seats
+                    section.name,             # secnam
+                    "",                       # capacity (blank)
+                    1                         # type (always 1)
+                ])
+
+        try:
+            wb.save(file_path)
+            self.statusBar().showMessage(f"📊 Exported to {file_path}", 5000)
+        except Exception as e:
+            QMessageBox.critical(self, "Export failed", f"Could not save file:\n{e}")
 
     def add_section_dialog(self):
         name, ok = QInputDialog.getText(self, "New section", "Section name:")

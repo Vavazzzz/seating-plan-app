@@ -50,3 +50,7 @@ def export_project_dialog(parent, seating_plan: SeatingPlan):
 
     seating_plan.export_to_json(path)
     _last_dir = Path(path).parent
+
+def export_to_excel_dialog(parent, seating_plan: SeatingPlan):
+    global _last_dir
+    pass
