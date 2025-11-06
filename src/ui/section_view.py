@@ -1,10 +1,10 @@
 # src/ui/section_view.py
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QVBoxLayout, QHBoxLayout, QPushButton,
-    QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame, QInputDialog,
+    QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame,
     QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QSpinBox
 )
-from PyQt6.QtGui import QBrush, QPen, QPainter, QKeySequence, QShortcut
+from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from ..models.section import Section
 from string import ascii_uppercase
@@ -161,23 +161,6 @@ class SectionView(QWidget):
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
 
-    """
-    # keyboard shortcuts local to section view
-    self._install_shortcuts()
-        
-                # ---------- Shortcuts ----------
-    def _install_shortcuts(self):
-        # Select All
-        QShortcut(QKeySequence("Ctrl+A"), self, activated=self.select_all_seats).setContext(Qt.ShortcutContext.WidgetShortcut)
-        # Delete selected
-        QShortcut(QKeySequence("Ctrl+D"), self, activated=self.delete_selected_seats).setContext(Qt.ShortcutContext.WidgetShortcut)
-        # Reset zoom
-        QShortcut(QKeySequence("Ctrl+0"), self, activated=self.reset_zoom).setContext(Qt.ShortcutContext.WidgetShortcut)
-        # Zoom in/out (Ctrl + '=' / Ctrl + '-')
-        QShortcut(QKeySequence("Ctrl+="), self, activated=self.zoom_in).setContext(Qt.ShortcutContext.WidgetShortcut)
-        QShortcut(QKeySequence("Ctrl+-"), self, activated=self.zoom_out).setContext(Qt.ShortcutContext.WidgetShortcut)
-    """
-
     # ---------- Overlay positioning ----------
     def eventFilter(self, obj, event):
         if obj == self.view.viewport() and event.type() == QEvent.Type.Resize:
@@ -220,11 +203,18 @@ class SectionView(QWidget):
         x_spacing = SeatItemRect.WIDTH + 5
         y_spacing = SeatItemRect.HEIGHT + 10
 
+        section_label = self.scene.addText(section.name)
+        section_label.setPos((len(all_seat_numbers) * x_spacing + 10) / 2, -50)
+
+        # Render seats
         y = 0
         for row in sorted_rows:
             seats = {s.seat_number: s for s in seats_by_row[row]}
-            row_label = self.scene.addSimpleText(str(row))
-            row_label.setPos(-40, y)
+            row_label_sx = self.scene.addSimpleText(str(row))
+            row_label_sx.setPos(-40, y)
+            row_label_dx = self.scene.addSimpleText(str(row))
+            row_label_dx.setPos(len(all_seat_numbers) * x_spacing + 10, y)
+
             for idx, seat_num in enumerate(all_seat_numbers):
                 if seat_num in seats:
                     seat = seats[seat_num]
