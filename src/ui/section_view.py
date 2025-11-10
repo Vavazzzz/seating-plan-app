@@ -349,6 +349,10 @@ class ZoomableGraphicsView(QGraphicsView):
         self._zoom = 1.0
         self.section_view = section_view
 
+        # Panning state
+        self._panning = False
+        self._pan_start = None
+
     def set_zoom(self, factor: float):
         self.resetTransform()
         self.scale(factor, factor)
@@ -363,3 +367,38 @@ class ZoomableGraphicsView(QGraphicsView):
             self.set_zoom(new_zoom)
         else:
             super().wheelEvent(event)
+
+    def mousePressEvent(self, event):
+        # Start panning when middle button (mouse wheel) is pressed
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._panning = True
+            self._pan_start = event.pos()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            # disable rubberband while panning
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._panning and self._pan_start is not None:
+            # compute delta in viewport coordinates and scroll accordingly
+            delta = event.pos() - self._pan_start
+            self._pan_start = event.pos()
+            # Adjust the view's position directly instead of relying on scrollbars
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.MiddleButton and self._panning:
+            self._panning = False
+            self._pan_start = None
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            # restore rubberband drag
+            self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
