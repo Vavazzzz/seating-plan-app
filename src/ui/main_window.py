@@ -12,8 +12,7 @@ from PyQt6.QtCore import Qt
 from string import ascii_uppercase
 from ..models.seating_plan import SeatingPlan
 from ..utils.json_io import import_project_dialog, export_project_dialog, export_to_excel_dialog
-from .section_view import SectionView, RangeInputDialog
-
+from .section_view import SectionView
 
 class MainWindow(QMainWindow):
     def __init__(self):
