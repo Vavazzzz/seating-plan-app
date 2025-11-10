@@ -273,6 +273,7 @@ class MainWindow(QMainWindow):
         if sp:
             self.seating_plan = sp
             self.refresh_section_table()
+            self.refresh_view()
             self.status_label.setText("📂 Imported seating plan")
 
     def export_project(self):
