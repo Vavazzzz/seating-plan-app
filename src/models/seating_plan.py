@@ -9,6 +9,8 @@ class SeatingPlan:
         self.sections: Dict[str, Section] = {}
         if name is None or name.strip() == "":
             self.name = "Unnamed Plan"
+        else:
+            self.name = name
 
     def add_section(self, name):
         if name not in self.sections:
