@@ -96,12 +96,12 @@ class MainWindow(QMainWindow):
         import_action.triggered.connect(self.import_project)
         file_menu.addAction(import_action)
 
-        # Export seating plan to JSON
+        """        # Export seating plan to JSON
         export_action = QAction("Export JSON...", self)
         export_action.setToolTip("Export seating plan JSON")
         export_action.triggered.connect(self.export_project)
         file_menu.addAction(export_action)
-
+        """
         # Export seating plan to Excel
         export_excel_action = QAction("Export Excel...", self)
         export_excel_action.setToolTip("Export seating plan to Excel")
@@ -261,7 +261,7 @@ class MainWindow(QMainWindow):
         if not path.lower().endswith((".json", ".seatproj")):
             path += ".seatproj"
         try:
-            self.seating_plan.export_to_json(path)
+            self.seating_plan.export_project(path)
             self.status_label.setText(f"💾 Saved project: {Path(path).name} (Ctrl+S)")
         except Exception as e:
             QMessageBox.warning(self, "Save failed", str(e))

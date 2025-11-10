@@ -24,7 +24,7 @@ def import_project_dialog(parent) -> Optional[SeatingPlan]:
     )
     if path:
         sp = SeatingPlan()
-        sp.import_from_json(path)
+        sp.import_project(path)
         _last_dir = Path(path).parent
         return sp
     return None
@@ -46,7 +46,7 @@ def export_project_dialog(parent, seating_plan: SeatingPlan):
     if not path.lower().endswith(".json"):
         path += ".json"
 
-    seating_plan.export_to_json(path)
+    seating_plan.export_project(path)
     _last_dir = Path(path).parent
 
 def export_to_excel_dialog(parent, seating_plan: SeatingPlan):

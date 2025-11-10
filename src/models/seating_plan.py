@@ -5,9 +5,10 @@ from typing import Dict
 from .section import Section
 
 class SeatingPlan:
-    def __init__(self, name):
+    def __init__(self, name="Unnamed Plan"):
         self.sections: Dict[str, Section] = {}
-        self.name = name
+        if name is None or name.strip() == "":
+            self.name = "Unnamed Plan"
 
     def add_section(self, name):
         if name not in self.sections:
@@ -32,25 +33,27 @@ class SeatingPlan:
 
     # ---------- JSON (new hierarchical format) ----------
     def to_dict(self):
-        return {
+        return {"seating_plan_name" : self.name,
             "sections": [section.to_dict() for section in self.sections.values()]
         }
 
     def from_dict(self, data):
+        self.name = data.get("seating_plan_name", "Unnamed Plan")
         self.sections = {}
         for section_data in data.get("sections", []):
             section = Section.from_dict(section_data)
             self.sections[section.name] = section
 
-    def export_to_json(self, file_path):
+    def export_project(self, file_path):
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
 
-    def import_from_json(self, file_path):
+    def import_project(self, file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             self.from_dict(data)
 
+    # Export to Excel manifest
     def export_to_excel(self, file_path):
         
         wb = Workbook()
