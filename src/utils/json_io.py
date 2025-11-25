@@ -1,5 +1,4 @@
-# src/utils/json_io.py
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from pathlib import Path
 from typing import Optional
 from ..models.seating_plan import SeatingPlan
@@ -14,6 +13,7 @@ def _get_suggested_filename(seating_plan: SeatingPlan) -> str:
     return "seating_plan.json"
 
 def import_project_dialog(parent) -> Optional[SeatingPlan]:
+    """Show a file dialog for importing a seating plan JSON file."""
     global _last_dir
     start_dir = str(_last_dir) if _last_dir else ""
     path, _ = QFileDialog.getOpenFileName(
@@ -23,13 +23,17 @@ def import_project_dialog(parent) -> Optional[SeatingPlan]:
         "JSON Files (*.json; *.seatproj);;All Files (*)"
     )
     if path:
-        sp = SeatingPlan()
-        sp.import_project(path)
-        _last_dir = Path(path).parent
-        return sp
+        try:
+            sp = SeatingPlan()
+            sp.import_project(path)
+            _last_dir = Path(path).parent
+            return sp
+        except Exception as e:
+            QMessageBox.warning(parent, "Import Failed", f"Could not load file:\n{e}")
     return None
 
-def export_project_dialog(parent, seating_plan: SeatingPlan):
+def export_project_dialog(parent, seating_plan: SeatingPlan) -> None:
+    """Show a dialog to export the current seating plan as JSON."""
     global _last_dir
     start_dir = str(_last_dir) if _last_dir else ""
     suggested_name = _get_suggested_filename(seating_plan)
@@ -45,11 +49,14 @@ def export_project_dialog(parent, seating_plan: SeatingPlan):
     # ensure .json extension
     if not path.lower().endswith(".json"):
         path += ".json"
+    try:
+        seating_plan.export_project(path)
+        _last_dir = Path(path).parent
+    except Exception as e:
+        QMessageBox.warning(parent, "Export Failed", f"Could not export file:\n{e}")
 
-    seating_plan.export_project(path)
-    _last_dir = Path(path).parent
-
-def export_to_excel_dialog(parent, seating_plan: SeatingPlan):
+def export_to_excel_dialog(parent, seating_plan: SeatingPlan) -> None:
+    """Show a dialog to export the current seating plan as an Excel file."""
     global _last_dir
     start_dir = str(_last_dir) if _last_dir else ""
     suggested_name = _get_suggested_filename(seating_plan).replace(".json", ".xlsx")
@@ -65,6 +72,8 @@ def export_to_excel_dialog(parent, seating_plan: SeatingPlan):
     # ensure .xlsx extension
     if not path.lower().endswith(".xlsx"):
         path += ".xlsx"
-
-    seating_plan.export_to_excel(path)
-    _last_dir = Path(path).parent
+    try:
+        seating_plan.export_to_excel(path)
+        _last_dir = Path(path).parent
+    except Exception as e:
+        QMessageBox.warning(parent, "Export Failed", f"Could not export file:\n{e}")

@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from ..models.section import Section
-from ..utils.alphanum_hadler import alphanum_range
+from ..utils.alphanum_handler import alphanum_range
 from string import ascii_uppercase
 
 
