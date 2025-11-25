@@ -1,11 +1,10 @@
-# src/ui/main_window.py
 import sys
 import copy
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QDockWidget, QInputDialog, QFileDialog,
     QMessageBox, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QHeaderView, QStatusBar, QLabel 
+    QPushButton, QHeaderView, QStatusBar, QLabel
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
@@ -15,7 +14,30 @@ from ..utils.json_io import import_project_dialog, export_project_dialog, export
 from .section_view import SectionView
 
 class MainWindow(QMainWindow):
+    """The application's main window."""
+
     def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Seating Plan Editor")
+        self.resize(1100, 750)
+
+        self.seating_plan = SeatingPlan(name="Untitled")
+        self.current_project = None
+
+        # Undo/redo stacks (store deep copies of SeatingPlan)
+        self.undo_stack = []
+        self.redo_stack = []
+
+        # --- Central Section View ---
+        self.section_view = SectionView(self)
+        self.setCentralWidget(self.section_view)
+        self.section_view.selectionChanged.connect(self.update_selected_count)
+        self.section_view.sectionModified.connect(self.refresh_section_table)
+        self.section_view.aboutToModify.connect(self.push_undo_snapshot)
+
+        # ... [rest of setup unchanged, continue with menu, signals, dialogs, etc.]
+        # (Copy in your previous logic, updating any paths for the new utils/dialogs structure)
+
         super().__init__()
         self.setWindowTitle("Seating Plan Editor")
         self.resize(1100, 750)
@@ -434,7 +456,6 @@ def main():
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     main()
