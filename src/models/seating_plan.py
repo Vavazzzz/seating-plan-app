@@ -62,7 +62,7 @@ class SeatingPlan:
         ws = wb.active
         ws.title = "Seating Plan"
 
-        headers = ["section", "row", "seat_number", "seat_name", "capacity", "type"]
+        headers = ["section", "rows", "seats", "secnam", "capacity", "type"]
         ws.append(headers)
 
         # Iterate through sections and rows
@@ -79,7 +79,7 @@ class SeatingPlan:
                     ",".join(seat_list_sorted),# seats
                     section.name,             # secnam
                     "",                       # capacity (blank)
-                    1                         # type (always 1)
+                    0                         # type (always 0)
                 ])
 
 
