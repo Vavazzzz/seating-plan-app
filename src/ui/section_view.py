@@ -2,11 +2,12 @@
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QVBoxLayout, QHBoxLayout, QPushButton,
     QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame,
-    QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QSpinBox
+    QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QSpinBox, QComboBox
 )
 from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from ..models.section import Section
+from ..utils.alphanum_hadler import alphanum_range
 from string import ascii_uppercase
 
 
@@ -16,27 +17,30 @@ class RangeInputDialog(QDialog):
         super().__init__(parent)
         self.mode = mode  # 'seat' or 'row'
         self.setWindowTitle("Add " + ("Row Range" if mode == "row" else "Seat Range"))
-        self.setMinimumWidth(300)
+        self.setMinimumWidth(320)
 
         layout = QFormLayout(self)
 
-        # Fields common to both modes
+        # Fields
         self.row_field = QLineEdit()
         self.start_row_field = QLineEdit()
         self.end_row_field = QLineEdit()
         self.start_seat_spin = QSpinBox()
         self.end_seat_spin = QSpinBox()
-        self.start_seat_spin.setRange(1, 10000)
-        self.end_seat_spin.setRange(1, 10000)
+        self.start_seat_spin.setRange(0, 10000)
+        self.end_seat_spin.setRange(0, 10000)
+        self.parity_combo = QComboBox()
+        self.parity_combo.addItems(["All", "Even", "Odd"])
 
         if mode == "seat":
-            layout.addRow("Row name:", self.row_field)
+            layout.addRow("Row:", self.row_field)
         else:
             layout.addRow("Start row:", self.start_row_field)
             layout.addRow("End row:", self.end_row_field)
 
         layout.addRow("Start seat:", self.start_seat_spin)
         layout.addRow("End seat:", self.end_seat_spin)
+        layout.addRow("Seat filter:", self.parity_combo)
 
         # Buttons
         self.buttons = QDialogButtonBox(
@@ -47,11 +51,13 @@ class RangeInputDialog(QDialog):
         layout.addRow(self.buttons)
 
     def get_values(self):
+        parity = self.parity_combo.currentText().lower()  # "all", "even", "odd"
         if self.mode == "seat":
             return {
                 "row": self.row_field.text().strip(),
                 "start_seat": self.start_seat_spin.value(),
                 "end_seat": self.end_seat_spin.value(),
+                "parity": parity
             }
         else:
             return {
@@ -59,7 +65,9 @@ class RangeInputDialog(QDialog):
                 "end_row": self.end_row_field.text().strip(),
                 "start_seat": self.start_seat_spin.value(),
                 "end_seat": self.end_seat_spin.value(),
+                "parity": parity
             }
+
 
 
 class SeatItemRect:
@@ -238,39 +246,95 @@ class SectionView(QWidget):
         data = dialog.get_values()
         if not data["row"]:
             return
+
+        start = data["start_seat"]
+        end = data["end_seat"]
+        parity = data.get("parity", "all")
+
+        # normalize numeric bounds
+        if start > end:
+            start, end = end, start
+
         # notify about to modify (so undo snapshot can be taken)
         self.aboutToModify.emit()
-        self.section.add_seat_range(data["row"], data["start_seat"], data["end_seat"])
+
+        if parity == "all":
+            # delegate to model for full range
+            self.section.add_seat_range(data["row"], start, end)
+        else:
+            # compute alphanumeric seat labels and add only matching parity (numeric only)
+            seats = alphanum_range(str(start), str(end))
+            for s in seats:
+                if s.isdigit():
+                    keep = (int(s) % 2 == 0) if parity == "even" else (int(s) % 2 == 1)
+                    if keep:
+                        self.section.add_seat(data["row"], s)
+                else:
+                    # non-numeric seat labels: add only for "all" (we already filtered),
+                    # so skip for even/odd because parity doesn't apply
+                    continue
+
         self.load_section(self.section)
         self.sectionModified.emit()
 
     def add_row_range_dialog(self):
-        if not self.section:
-            return
-        dialog = RangeInputDialog("row", self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        data = dialog.get_values()
-        if not data["start_row"] or not data["end_row"]:
-            return
+            if not self.section:
+                return
+            dialog = RangeInputDialog("row", self)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            data = dialog.get_values()
+            if not data["start_row"] or not data["end_row"]:
+                return
 
-        try:
-            # numeric range
-            rows = [str(i) for i in range(int(data["start_row"]), int(data["end_row"]) + 1)]
-        except ValueError:
-            # letter range
-            rows = ascii_uppercase[
-                ascii_uppercase.index(data["start_row"].upper()):
-                ascii_uppercase.index(data["end_row"].upper()) + 1
-            ]
+            start_seat = data["start_seat"]
+            end_seat = data["end_seat"]
+            parity = data.get("parity", "all")
 
-        # notify before bulk modification
-        self.aboutToModify.emit()
-        for r in rows:
-            self.section.add_seat_range(r, data["start_seat"], data["end_seat"])
+            try:
+                # numeric row range
+                rs = int(data["start_row"])
+                re = int(data["end_row"])
+                if rs <= re:
+                    rows = [str(i) for i in range(rs, re + 1)]
+                else:
+                    rows = [str(i) for i in range(re, rs + 1)]
+            except ValueError:
+                # letter range
+                try:
+                    si = ascii_uppercase.index(data["start_row"].upper())
+                    ei = ascii_uppercase.index(data["end_row"].upper())
+                    if si <= ei:
+                        rows = list(ascii_uppercase[si:ei+1])
+                    else:
+                        rows = list(ascii_uppercase[ei:si+1])
+                except ValueError:
+                    rows = []
 
-        self.load_section(self.section)
-        self.sectionModified.emit()
+            if not rows:
+                return
+
+            # notify before bulk modification
+            self.aboutToModify.emit()
+
+            if parity == "all":
+                for r in rows:
+                    self.section.add_seat_range(r, start_seat, end_seat)
+            else:
+                # build seats list once
+                seats = alphanum_range(str(start_seat), str(end_seat))
+                for r in rows:
+                    for s in seats:
+                        if s.isdigit():
+                            keep = (int(s) % 2 == 0) if parity == "even" else (int(s) % 2 == 1)
+                            if keep:
+                                self.section.add_seat(r, s)
+                        else:
+                            # skip non-numeric for even/odd
+                            continue
+
+            self.load_section(self.section)
+            self.sectionModified.emit()
 
     def delete_selected_seats(self):
         if not self.section:
