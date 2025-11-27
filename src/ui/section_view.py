@@ -2,7 +2,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QVBoxLayout, QHBoxLayout, QPushButton,
     QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame,
-    QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QSpinBox, QComboBox
+    QDialog, QMessageBox
 )
 from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
@@ -221,50 +221,86 @@ class SectionView(QWidget):
         self.sectionModified.emit()
 
     def add_row_range_dialog(self):
-            if not self.section:
-                return
-            dialog = RangeInputDialog("row", self)
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            data = dialog.get_values()
-            if not data["start_row"] or not data["end_row"]:
-                return
+        if not self.section:
+            return
+        dialog = RangeInputDialog("row", self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        data = dialog.get_values()
+        if not data["start_row"] or not data["end_row"]:
+            return
 
-            start_seat = data["start_seat"]
-            end_seat = data["end_seat"]
-            parity = data.get("parity", "all")
+        start_seat = data["start_seat"]
+        end_seat = data["end_seat"]
+        parity = data.get("parity", "all")
+        continuous = bool(data.get("continuous", False))
 
+        # Build rows list (numeric or letter ranges supported)
+        try:
+            rs = int(data["start_row"])
+            re = int(data["end_row"])
+            if rs <= re:
+                rows = [str(i) for i in range(rs, re + 1)]
+            else:
+                rows = [str(i) for i in range(re, rs + 1)]
+        except ValueError:
+            # letter range
             try:
-                # numeric row range
-                rs = int(data["start_row"])
-                re = int(data["end_row"])
-                if rs <= re:
-                    rows = [str(i) for i in range(rs, re + 1)]
+                si = ascii_uppercase.index(data["start_row"].upper())
+                ei = ascii_uppercase.index(data["end_row"].upper())
+                if si <= ei:
+                    rows = list(ascii_uppercase[si:ei+1])
                 else:
-                    rows = [str(i) for i in range(re, rs + 1)]
+                    rows = list(ascii_uppercase[ei:si+1])
             except ValueError:
-                # letter range
-                try:
-                    si = ascii_uppercase.index(data["start_row"].upper())
-                    ei = ascii_uppercase.index(data["end_row"].upper())
-                    if si <= ei:
-                        rows = list(ascii_uppercase[si:ei+1])
+                rows = []
+
+        if not rows:
+            return
+
+        # notify before bulk modification
+        self.aboutToModify.emit()
+
+        # Continuous numbering logic only supported for numeric seat labels
+        if continuous:
+            # verify numeric seats
+            if not (str(start_seat).isdigit() and str(end_seat).isdigit()):
+                QMessageBox.warning(self, "Continuous numbering",
+                                    "Continuous numbering is only supported for numeric seat labels. Falling back to per-row numbering.")
+                continuous = False
+
+        if continuous:
+            # compute seats per row and sequential numbering across rows
+            s0 = int(start_seat)
+            s1 = int(end_seat)
+            if s0 <= s1:
+                seats_per_row = s1 - s0 + 1
+                seq = s0
+            else:
+                seats_per_row = s0 - s1 + 1
+                seq = s1
+
+            for _row in rows:
+                for i in range(seats_per_row):
+                    seat_label = str(seq)
+                    if parity == "all":
+                        self.section.add_seat(_row, seat_label)
                     else:
-                        rows = list(ascii_uppercase[ei:si+1])
-                except ValueError:
-                    rows = []
-
-            if not rows:
-                return
-
-            # notify before bulk modification
-            self.aboutToModify.emit()
-
+                        try:
+                            val = int(seat_label)
+                            keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
+                            if keep:
+                                self.section.add_seat(_row, seat_label)
+                        except ValueError:
+                            # shouldn't happen since we validated numeric, but skip if it does
+                            pass
+                    seq += 1
+        else:
+            # existing behavior: add same seat range per row or apply parity
             if parity == "all":
                 for r in rows:
                     self.section.add_seat_range(r, start_seat, end_seat)
             else:
-                # build seats list once
                 seats = alphanum_range(str(start_seat), str(end_seat))
                 for r in rows:
                     for s in seats:
@@ -276,8 +312,8 @@ class SectionView(QWidget):
                             # skip non-numeric for even/odd
                             continue
 
-            self.load_section(self.section)
-            self.sectionModified.emit()
+        self.load_section(self.section)
+        self.sectionModified.emit()
 
     def delete_selected_seats(self):
         if not self.section:

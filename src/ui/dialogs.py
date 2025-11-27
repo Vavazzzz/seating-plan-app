@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QDialog, QFormLayout, QLineEdit, QSpinBox, QComboBox, QDialogButtonBox
+    QDialog, QFormLayout, QLineEdit, QSpinBox, QComboBox, QDialogButtonBox, QCheckBox
 )
 
 class RangeInputDialog(QDialog):
@@ -26,6 +26,14 @@ class RangeInputDialog(QDialog):
         self.parity_combo = QComboBox()
         self.parity_combo.addItems(["All", "Even", "Odd"])
 
+        # New: continuous numbering option (for row mode)
+        self.continuous_checkbox = QCheckBox("Continuous numbering across rows")
+        self.continuous_checkbox.setToolTip(
+            "When checked, seat numbers will continue across rows.\n"
+            "Example: rows 1-3 with seats 1-10 and continuous checked => "
+            "row1:1-10, row2:11-20, row3:21-30"
+        )
+
         if mode == "seat":
             layout.addRow("Row:", self.row_field)
         else:
@@ -35,6 +43,8 @@ class RangeInputDialog(QDialog):
         layout.addRow("Start seat:", self.start_seat_spin)
         layout.addRow("End seat:", self.end_seat_spin)
         layout.addRow("Seat filter:", self.parity_combo)
+        if mode == "row":
+            layout.addRow(self.continuous_checkbox)
 
         # Buttons
         self.buttons = QDialogButtonBox(
@@ -46,18 +56,21 @@ class RangeInputDialog(QDialog):
 
     def get_values(self) -> dict:
         parity = self.parity_combo.currentText().lower()  # "all", "even", "odd"
+        base = {
+            "start_seat": self.start_seat_spin.value(),
+            "end_seat": self.end_seat_spin.value(),
+            "parity": parity
+        }
         if self.mode == "seat":
-            return {
+            base.update({
                 "row": self.row_field.text().strip(),
-                "start_seat": self.start_seat_spin.value(),
-                "end_seat": self.end_seat_spin.value(),
-                "parity": parity
-            }
+                "continuous": False
+            })
+            return base
         else:
-            return {
+            base.update({
                 "start_row": self.start_row_field.text().strip(),
                 "end_row": self.end_row_field.text().strip(),
-                "start_seat": self.start_seat_spin.value(),
-                "end_seat": self.end_seat_spin.value(),
-                "parity": parity
-            }
+                "continuous": bool(self.continuous_checkbox.isChecked())
+            })
+            return base
