@@ -35,29 +35,6 @@ class MainWindow(QMainWindow):
         self.section_view.sectionModified.connect(self.refresh_section_table)
         self.section_view.aboutToModify.connect(self.push_undo_snapshot)
 
-        # ... [rest of setup unchanged, continue with menu, signals, dialogs, etc.]
-        # (Copy in your previous logic, updating any paths for the new utils/dialogs structure)
-
-        super().__init__()
-        self.setWindowTitle("Seating Plan Editor")
-        self.resize(1100, 750)
-
-        self.seating_plan = SeatingPlan(name="Untitled")
-        self.current_project = None
-
-        # Undo/Redo stacks (store deep copies of SeatingPlan)
-        self.undo_stack = []
-        self.redo_stack = []
-
-        # --- Central Section View ---
-        self.section_view = SectionView(self)
-        self.setCentralWidget(self.section_view)
-        self.section_view.selectionChanged.connect(self.update_selected_count)
-        # when a change is already done we refresh table; we also want to capture pre-change snapshots
-        self.section_view.sectionModified.connect(self.refresh_section_table)
-        # when section_view is about to modify, push an undo snapshot
-        self.section_view.aboutToModify.connect(self.push_undo_snapshot)
-
         # --- Dock: Sections table ---
         self.section_table = QTableWidget(0, 2)
         self.section_table.setHorizontalHeaderLabels(["Section", "Seats"])
@@ -70,7 +47,7 @@ class MainWindow(QMainWindow):
         # Add section button
         dock_widget_container = QWidget()
         dock_layout = QVBoxLayout()
-        self.add_section_btn = QPushButton("➕ Add Section")
+        self.add_section_btn = QPushButton("\u2795 Add Section")
         self.add_section_btn.setToolTip("Add a new section (Ctrl+N creates a new project; add section here)")
         dock_layout.addWidget(self.add_section_btn)
         dock_layout.addWidget(self.section_table)
@@ -117,12 +94,6 @@ class MainWindow(QMainWindow):
         import_action.triggered.connect(self.import_project)
         file_menu.addAction(import_action)
 
-        """        # Export seating plan to JSON
-        export_action = QAction("Export JSON...", self)
-        export_action.setToolTip("Export seating plan JSON")
-        export_action.triggered.connect(self.export_project)
-        file_menu.addAction(export_action)
-        """
         # Export seating plan to Excel
         export_excel_action = QAction("Export Excel...", self)
         export_excel_action.setToolTip("Export seating plan to Excel")
@@ -145,6 +116,12 @@ class MainWindow(QMainWindow):
         clone_section_action.setToolTip("Clone selected section")
         clone_section_action.triggered.connect(self.clone_section_dialog)
         edit_menu.addAction(clone_section_action)
+
+        # New: clone multiple
+        clone_many_action = QAction("Clone Section Multiple...", self)
+        clone_many_action.setToolTip("Clone selected section multiple times")
+        clone_many_action.triggered.connect(self.clone_section_many_dialog)
+        edit_menu.addAction(clone_many_action)
 
         delete_section_action = QAction("Delete Section", self)
         delete_section_action.setToolTip("Delete selected section")
@@ -218,12 +195,11 @@ class MainWindow(QMainWindow):
             self.seating_plan = copy.deepcopy(snapshot)
             # refresh UI
             self.refresh_section_table()
-            # if a section is loaded, reload it (choose same name if exists)
             if self.section_view.section and self.section_view.section.name in self.seating_plan.sections:
                 self.section_view.load_section(self.seating_plan.sections[self.section_view.section.name])
             else:
                 self.section_view.load_section(None)
-            self.status_label.setText("↩️ Undid last action")
+            self.status_label.setText("\u21a9\ufe0f Undid last action")
         except Exception as e:
             QMessageBox.warning(self, "Undo failed", str(e))
 
@@ -241,7 +217,7 @@ class MainWindow(QMainWindow):
                 self.section_view.load_section(self.seating_plan.sections[self.section_view.section.name])
             else:
                 self.section_view.load_section(None)
-            self.status_label.setText("↪️ Redid action")
+            self.status_label.setText("\u21aa\ufe0f Redid action")
         except Exception as e:
             QMessageBox.warning(self, "Redo failed", str(e))
 
@@ -264,7 +240,7 @@ class MainWindow(QMainWindow):
         self.current_project = None
         self.section_view.load_section(None)
         self.refresh_section_table()
-        self.status_label.setText("🆕 New project created")
+        self.status_label.setText("\ud83c\udd95 New project created")
 
     def new_project_dialog(self):
         name, ok = QInputDialog.getText(self, "New Project", "Project name:")
@@ -283,7 +259,7 @@ class MainWindow(QMainWindow):
             path += ".seatproj"
         try:
             self.seating_plan.export_project(path)
-            self.status_label.setText(f"💾 Saved project: {Path(path).name} (Ctrl+S)")
+            self.status_label.setText(f"\ud83d\udcbe Saved project: {Path(path).name} (Ctrl+S)")
         except Exception as e:
             QMessageBox.warning(self, "Save failed", str(e))
 
@@ -295,15 +271,15 @@ class MainWindow(QMainWindow):
             self.seating_plan = sp
             self.refresh_section_table()
             self.refresh_view()
-            self.status_label.setText("📂 Imported seating plan")
+            self.status_label.setText("\ud83d\udcc2 Imported seating plan")
 
     def export_project(self):
         export_project_dialog(self, self.seating_plan)
-        self.status_label.setText("💾 Exported seating plan")
+        self.status_label.setText("\ud83d\udcbe Exported seating plan")
 
     def export_to_excel(self):
         export_to_excel_dialog(self, self.seating_plan)
-        self.status_label.setText("💾 Exported seating plan to Excel")
+        self.status_label.setText("\ud83d\udcbe Exported seating plan to Excel")
 
     def add_section_dialog(self):
         name, ok = QInputDialog.getText(self, "New section", "Section name:")
@@ -323,40 +299,17 @@ class MainWindow(QMainWindow):
         # create section
         self.seating_plan.add_section(name)
 
-        # Load the newly created section into the view and immediately open the row-range dialog
+        # Load the newly created section into the view
         section_obj = self.seating_plan.sections.get(name)
         if section_obj:
             self.section_view.load_section(section_obj)
-
-            # call the SectionView dialog to add rows/seats (fallback to simple inputs on error)
             try:
                 self.section_view.add_row_range_dialog()
             except Exception as e:
                 QMessageBox.warning(self, "Add rows", f"Could not open advanced dialog: {e}")
-                sr, ok1 = QInputDialog.getText(self, "Start row", "Start row label:")
-                if ok1:
-                    er, ok2 = QInputDialog.getText(self, "End row", "End row label:")
-                    if ok2:
-                        ss, ok3 = QInputDialog.getInt(self, "Start seat", "Start seat number:", 1, 1)
-                        if ok3:
-                            es, ok4 = QInputDialog.getInt(self, "End seat", "End seat number:", 1, 1)
-                            if ok4:
-                                try:
-                                    s = int(sr); e = int(er)
-                                    rows = [str(i) for i in range(min(s, e), max(s, e) + 1)]
-                                except ValueError:
-                                    try:
-                                        si = ascii_uppercase.index(sr.upper())
-                                        ei = ascii_uppercase.index(er.upper())
-                                        rows = list(ascii_uppercase[min(si, ei):max(si, ei) + 1])
-                                    except Exception:
-                                        rows = []
-                                for r in rows:
-                                    self.seating_plan.sections[name].add_seat_range(r, min(ss, es), max(ss, es))
 
         # refresh UI to show added rows/seats
         self.refresh_section_table()
-        # automatically load the new section in the view
         section_obj = self.seating_plan.sections.get(name)
         if section_obj:
             self.section_view.load_section(section_obj)
@@ -382,6 +335,28 @@ class MainWindow(QMainWindow):
         self.refresh_section_table()
         self.status_label.setText(f"Cloned '{src_name}' to '{new_name}'")
 
+    def clone_section_many_dialog(self):
+        """Clone the selected section multiple times with incrementing names."""
+        row = self.section_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "No selection", "Select a section to clone.")
+            return
+        src_name = self.section_table.item(row, 0).text()
+
+        num, ok = QInputDialog.getInt(self, "Clone section multiple", "Number of clones to create:", 1, 1, 500)
+        if not ok or num <= 0:
+            return
+
+        # snapshot before cloning
+        self.push_undo_snapshot(f"Clone section '{src_name}' x{num}")
+
+        created = self.seating_plan.clone_section_many(src_name, num)
+        self.refresh_section_table()
+        if created:
+            self.status_label.setText(f"Cloned '{src_name}' {len(created)} times: {', '.join(created)}")
+        else:
+            self.status_label.setText(f"No clones created for '{src_name}'")
+
     def delete_section(self):
         row = self.section_table.currentRow()
         if row < 0:
@@ -395,7 +370,7 @@ class MainWindow(QMainWindow):
             self.seating_plan.delete_section(name)
             self.refresh_section_table()
             self.section_view.load_section(None)
-            self.status_label.setText(f"🗑 Deleted section '{name}'")
+            self.status_label.setText(f"\ud83d\uddd1 Deleted section '{name}'")
 
     def rename_section_dialog(self):
         row = self.section_table.currentRow()
@@ -414,7 +389,7 @@ class MainWindow(QMainWindow):
 
         self.seating_plan.rename_section(old, new)
         self.refresh_section_table()
-        self.status_label.setText(f"✏️ Renamed section '{old}' to '{new}'")
+        self.status_label.setText(f"\u270f\ufe0f Renamed section '{old}' to '{new}'")
 
     def toggle_sections_panel(self, checked):
         self.section_dock.setVisible(checked)
@@ -427,7 +402,7 @@ class MainWindow(QMainWindow):
         section = self.seating_plan.sections.get(name_item.text())
         if section:
             self.section_view.load_section(section)
-            self.status_label.setText(f"📍 Loaded section '{name_item.text()}' ({len(section.seats)} seats)")
+            self.status_label.setText(f"\ud83d\udccd Loaded section '{name_item.text()}' ({len(section.seats)} seats)")
             # reset selected counter
             self.update_selected_count(0)
 
@@ -446,10 +421,10 @@ class MainWindow(QMainWindow):
         """Force redraw / reload current section to reflect model state."""
         if self.section_view.section and self.section_view.section.name in self.seating_plan.sections:
             self.section_view.load_section(self.seating_plan.sections[self.section_view.section.name])
-            self.status_label.setText("🔄 View refreshed")
+            self.status_label.setText("\ud83d\udd04 View refreshed")
         else:
             self.section_view.load_section(None)
-            self.status_label.setText("🔄 View refreshed (no section)")
+            self.status_label.setText("\ud83d\udd04 View refreshed (no section)")
 
 def main():
     app = QApplication(sys.argv)

@@ -1,6 +1,7 @@
 import json
+import re
 from openpyxl import Workbook
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .section import Section
 
 class SeatingPlan:
@@ -29,6 +30,49 @@ class SeatingPlan:
             cloned = self.sections[name].clone()
             cloned.name = new_name
             self.sections[new_name] = cloned
+
+    def clone_section_many(self, name: str, count: int) -> List[str]:
+        """
+        Clone the given section 'count' times, returning a list of created section names.
+
+        Naming strategy:
+        - If the source name ends with a numeric suffix (e.g. "Section 1"), the clones will
+          continue numbering from that suffix +1 (e.g. 2,3,...).
+        - If the source name has no numeric suffix, clones will be created as "Name 2",
+          "Name 3", ... (starting numbering at 2).
+        - If a generated candidate name already exists, it is skipped by advancing the number
+          until an unused name is found. Exactly 'count' new sections will be created.
+        """
+        created: List[str] = []
+        if name not in self.sections or count <= 0:
+            return created
+
+        # Try to find a prefix and a start number. Example matches:
+        #  - "I Ordine Palco 1" -> prefix="I Ordine Palco", start=1
+        #  - "Balcony" -> prefix="Balcony", start=None -> we'll treat start as 1
+        m = re.match(r"^(.*\S)(?:\s+(\d+))?$", name)
+        if not m:
+            prefix = name
+            start_num = 1
+        else:
+            prefix = m.group(1) if m.group(1) else name
+            start_num = int(m.group(2)) if m.group(2) else 1
+
+        current = start_num + 1
+        for _ in range(count):
+            # find next unused candidate name
+            candidate = f"{prefix} {current}"
+            while candidate in self.sections:
+                current += 1
+                candidate = f"{prefix} {current}"
+            # clone and register
+            cloned = self.sections[name].clone()
+            cloned.name = candidate
+            self.sections[candidate] = cloned
+            created.append(candidate)
+            current += 1
+
+        return created
 
     # ---- Serialization ----
     def to_dict(self) -> dict:
