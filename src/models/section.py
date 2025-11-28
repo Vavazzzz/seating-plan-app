@@ -1,6 +1,7 @@
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Union
 from .seat import Seat
 import copy
+from ..utils.alphanum_handler import alphanum_range
 
 class Section:
     """Represents a section containing multiple seats."""
@@ -16,10 +17,34 @@ class Section:
         if seat_key not in self.seats:
             self.seats[seat_key] = Seat(row, seat_number)
 
-    def add_seat_range(self, row: str, start_seat: int, end_seat: int) -> None:
-        """Add all seats from start_seat to end_seat inclusive in a given row."""
-        for seat_number in range(start_seat, end_seat + 1):
-            self.add_seat(row, str(seat_number))
+    def add_seat_range(self, row: str, start_seat: Union[int, str], end_seat: Union[int, str]) -> None:
+        """
+        Add seats for a given 'row' between start_seat and end_seat inclusive.
+
+        start_seat and end_seat may be ints (or strings of digits) or alphabetic labels
+        (e.g. 'A'..'Z' or multi-letter like 'AA'). This uses alphanum_range() to generate
+        the full list of labels and will add each seat label to the row.
+        """
+        # normalize to strings
+        s_start = str(start_seat)
+        s_end = str(end_seat)
+
+        # build list using alphanumeric helper (handles numeric and alphabetic ranges)
+        seats = alphanum_range(s_start, s_end)
+        # If alphanum_range returns empty (invalid), attempt a best-effort fallback:
+        if not seats:
+            try:
+                a = int(s_start)
+                b = int(s_end)
+                if a > b:
+                    a, b = b, a
+                seats = [str(i) for i in range(a, b + 1)]
+            except Exception:
+                # give up silently (no seats added) - caller/UI can warn
+                return
+
+        for s in seats:
+            self.add_seat(row, str(s))
 
     def delete_seat(self, row: str, seat_number: str) -> None:
         seat_key = f"{row}-{seat_number}"

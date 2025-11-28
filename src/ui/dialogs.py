@@ -1,17 +1,21 @@
 from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QLineEdit, QSpinBox, QComboBox, QDialogButtonBox, QCheckBox
 )
+from PyQt6.QtCore import Qt
 
 class RangeInputDialog(QDialog):
     """
     Generic dialog for creating seat or row ranges.
     mode: "seat" or "row"
+
+    Note: start/end seat fields accept text so both numeric and letter labels are possible
+    (e.g. '1'..'10' or 'A'..'F').
     """
     def __init__(self, mode: str, parent=None):
         super().__init__(parent)
         self.mode = mode  # 'seat' or 'row'
         self.setWindowTitle("Add " + ("Row Range" if mode == "row" else "Seat Range"))
-        self.setMinimumWidth(320)
+        self.setMinimumWidth(360)
 
         layout = QFormLayout(self)
 
@@ -19,10 +23,13 @@ class RangeInputDialog(QDialog):
         self.row_field = QLineEdit()
         self.start_row_field = QLineEdit()
         self.end_row_field = QLineEdit()
-        self.start_seat_spin = QSpinBox()
-        self.end_seat_spin = QSpinBox()
-        self.start_seat_spin.setRange(0, 10000)
-        self.end_seat_spin.setRange(0, 10000)
+
+        # Seat inputs: text fields so letters are supported. Keep a small width hint.
+        self.start_seat_field = QLineEdit()
+        self.end_seat_field = QLineEdit()
+        self.start_seat_field.setPlaceholderText("e.g. 1 or A")
+        self.end_seat_field.setPlaceholderText("e.g. 10 or F")
+
         self.parity_combo = QComboBox()
         self.parity_combo.addItems(["All", "Even", "Odd"])
 
@@ -31,7 +38,8 @@ class RangeInputDialog(QDialog):
         self.continuous_checkbox.setToolTip(
             "When checked, seat numbers will continue across rows.\n"
             "Example: rows 1-3 with seats 1-10 and continuous checked => "
-            "row1:1-10, row2:11-20, row3:21-30"
+            "row1:1-10, row2:11-20, row3:21-30\n\n"
+            "Continuous numbering only supports numeric seat labels."
         )
 
         if mode == "seat":
@@ -40,8 +48,8 @@ class RangeInputDialog(QDialog):
             layout.addRow("Start row:", self.start_row_field)
             layout.addRow("End row:", self.end_row_field)
 
-        layout.addRow("Start seat:", self.start_seat_spin)
-        layout.addRow("End seat:", self.end_seat_spin)
+        layout.addRow("Start seat:", self.start_seat_field)
+        layout.addRow("End seat:", self.end_seat_field)
         layout.addRow("Seat filter:", self.parity_combo)
         if mode == "row":
             layout.addRow(self.continuous_checkbox)
@@ -57,8 +65,8 @@ class RangeInputDialog(QDialog):
     def get_values(self) -> dict:
         parity = self.parity_combo.currentText().lower()  # "all", "even", "odd"
         base = {
-            "start_seat": self.start_seat_spin.value(),
-            "end_seat": self.end_seat_spin.value(),
+            "start_seat": self.start_seat_field.text().strip(),
+            "end_seat": self.end_seat_field.text().strip(),
             "parity": parity
         }
         if self.mode == "seat":

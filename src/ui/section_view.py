@@ -1,22 +1,18 @@
-# src/ui/section_view.py
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QVBoxLayout, QHBoxLayout, QPushButton,
     QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame,
-    QDialog, QMessageBox
+    QMenu, QInputDialog, QMessageBox, QDialog
 )
 from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from ..models.section import Section
-from .dialogs import RangeInputDialog
 from ..utils.alphanum_handler import alphanum_range
+from .dialogs import RangeInputDialog
 from string import ascii_uppercase
-
-
 
 class SeatItemRect:
     WIDTH = 20
     HEIGHT = 20
-
 
 class SeatItem(QGraphicsRectItem):
     def __init__(self, row, seat):
@@ -35,11 +31,11 @@ class SeatItem(QGraphicsRectItem):
     def update_visual(self):
         self.setBrush(QBrush(Qt.GlobalColor.green if self.isSelected() else Qt.GlobalColor.lightGray))
 
-
 class SectionView(QWidget):
+    """A QWidget for rendering and manipulating a Section in a seating plan."""
     selectionChanged = pyqtSignal(int)
-    aboutToModify = pyqtSignal()   # emitted before mutating operations to allow snapshots
-    sectionModified = pyqtSignal()  # emitted after mutation to refresh UI
+    aboutToModify = pyqtSignal()   # emitted before mutating ops (for undo)
+    sectionModified = pyqtSignal()  # emitted after mutation (for refresh)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -47,14 +43,14 @@ class SectionView(QWidget):
         self.scene = QGraphicsScene(self)
         self.view = ZoomableGraphicsView(self.scene, self)
 
-        # ---- Top control buttons ----
-        self.btn_add_seat_range = QPushButton("➕ Add Seat Range")
+        # Controls
+        self.btn_add_seat_range = QPushButton("\u2795 Add Seat Range")
         self.btn_add_seat_range.setToolTip("Add seat range (opens a single dialog).")
-        self.btn_add_row_range = QPushButton("➕ Add Row Range")
+        self.btn_add_row_range = QPushButton("\u2795 Add Row Range")
         self.btn_add_row_range.setToolTip("Add multiple rows with seat ranges.")
-        self.btn_delete_seat = QPushButton("🗑 Delete Seats")
+        self.btn_delete_seat = QPushButton("\U0001F5D1 Delete Seats")
         self.btn_delete_seat.setToolTip("Delete selected seats (Del).")
-        self.btn_delete_row = QPushButton("🗑 Delete Rows")
+        self.btn_delete_row = QPushButton("\U0001F5D1 Delete Rows")
         self.btn_delete_row.setToolTip("Delete selected rows (by selecting seats in those rows).")
 
         controls_layout = QHBoxLayout()
@@ -102,13 +98,16 @@ class SectionView(QWidget):
         self.zoom_slider.valueChanged.connect(self.on_zoom_slider_changed)
         self.scene.selectionChanged.connect(self.on_selection_changed)
 
-        # connect buttons
+        # Connect buttons
         self.btn_add_seat_range.clicked.connect(self.add_seat_range_dialog)
         self.btn_add_row_range.clicked.connect(self.add_row_range_dialog)
         self.btn_delete_seat.clicked.connect(self.delete_selected_seats)
         self.btn_delete_row.clicked.connect(self.delete_selected_rows)
 
-        
+        # Context menu for move seats
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
 
@@ -137,10 +136,13 @@ class SectionView(QWidget):
             seats_by_row.setdefault(seat.row_number, []).append(seat)
 
         # Determine all seat numbers used across the section
-        all_seat_numbers = sorted(
-            {s.seat_number for s in section.seats.values()},
-            key=lambda n: int(n) if str(n).isdigit() else str(n)
-        )
+        def seat_key_sort(n: str):
+            try:
+                return int(n)
+            except Exception:
+                return n
+
+        all_seat_numbers = sorted({s.seat_number for s in section.seats.values()}, key=seat_key_sort)
 
         def _row_sort_key(value: str):
             try:
@@ -178,6 +180,82 @@ class SectionView(QWidget):
         self.scene.setSceneRect(self.scene.itemsBoundingRect())
         self.position_zoom_overlay()
 
+    # ---------- Context menu and move seats ----------
+    def show_context_menu(self, pos):
+        """Show context menu on right-click if seats are selected."""
+        if not self.section:
+            return
+        selected = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
+        if not selected:
+            return
+
+        menu = QMenu(self)
+        move_action = menu.addAction("Move selected seats to section...")
+        action = menu.exec(self.mapToGlobal(pos))
+        if action == move_action:
+            self.move_selected_seats_dialog()
+
+    def move_selected_seats_dialog(self):
+        """
+        Show dialog to move selected seats to an existing or new section.
+        Uses the parent (MainWindow) seating_plan to list/create sections.
+        """
+        if not self.section or not self.parent() or not hasattr(self.parent(), "seating_plan"):
+            return
+
+        mainwindow = self.parent()
+        current_section_name = self.section.name
+        all_names = [name for name in mainwindow.seating_plan.sections.keys() if name != current_section_name]
+        all_names.append("Create new section...")
+
+        target_item, ok = QInputDialog.getItem(self, "Move Seats", "Select target section:", all_names, editable=False)
+        if not ok or not target_item:
+            return
+
+        if target_item == "Create new section...":
+            target_name, ok2 = QInputDialog.getText(self, "New Section", "Enter name for new section:")
+            if not ok2 or not target_name:
+                return
+            target_name = target_name.strip()
+            if not target_name:
+                return
+            if target_name in mainwindow.seating_plan.sections:
+                QMessageBox.warning(self, "Exists", "Section by that name already exists.")
+                return
+            # push snapshot via aboutToModify in caller
+            mainwindow.seating_plan.add_section(target_name)
+            target = target_name
+        else:
+            target = target_item
+
+        # perform move
+        selected_items = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
+        if not selected_items:
+            return
+
+        # notify about to modify so MainWindow can take a snapshot
+        self.aboutToModify.emit()
+
+        target_section = mainwindow.seating_plan.sections.get(target)
+        if not target_section:
+            QMessageBox.warning(self, "Target Missing", "Target section could not be found.")
+            return
+
+        for item in selected_items:
+            key = f"{item.row}-{item.seat}"
+            seat_obj = self.section.seats.get(key)
+            if seat_obj:
+                # add to target and remove from current
+                target_section.add_seat(seat_obj.row_number, seat_obj.seat_number)
+                self.section.delete_seat(seat_obj.row_number, seat_obj.seat_number)
+
+        # refresh main UI and this view
+        try:
+            mainwindow.refresh_section_table()
+        except Exception:
+            pass
+        self.load_section(self.section)
+        self.sectionModified.emit()
 
     # ---------- Seat Manipulation ----------
     def add_seat_range_dialog(self):
@@ -187,34 +265,42 @@ class SectionView(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         data = dialog.get_values()
-        if not data["row"]:
+        row = data.get("row")
+        if not row:
             return
 
         start = data["start_seat"]
         end = data["end_seat"]
         parity = data.get("parity", "all")
 
-        # normalize numeric bounds
-        if start > end:
-            start, end = end, start
+        # build seat labels using alphanum helper
+        seats = alphanum_range(start, end)
+        if not seats:
+            # fallback: attempt numeric interpretation
+            try:
+                a = int(start); b = int(end)
+                if a > b:
+                    a, b = b, a
+                seats = [str(i) for i in range(a, b+1)]
+            except Exception:
+                QMessageBox.warning(self, "Invalid range", "Could not interpret start/end seat range.")
+                return
 
         # notify about to modify (so undo snapshot can be taken)
         self.aboutToModify.emit()
 
         if parity == "all":
-            # delegate to model for full range
-            self.section.add_seat_range(data["row"], start, end)
+            for s in seats:
+                self.section.add_seat(row, s)
         else:
-            # compute alphanumeric seat labels and add only matching parity (numeric only)
-            seats = alphanum_range(str(start), str(end))
             for s in seats:
                 if s.isdigit():
-                    keep = (int(s) % 2 == 0) if parity == "even" else (int(s) % 2 == 1)
+                    val = int(s)
+                    keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
                     if keep:
-                        self.section.add_seat(data["row"], s)
+                        self.section.add_seat(row, s)
                 else:
-                    # non-numeric seat labels: add only for "all" (we already filtered),
-                    # so skip for even/odd because parity doesn't apply
+                    # skip non-numeric seat labels for even/odd parity
                     continue
 
         self.load_section(self.section)
@@ -227,7 +313,9 @@ class SectionView(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         data = dialog.get_values()
-        if not data["start_row"] or not data["end_row"]:
+        start_row = data.get("start_row")
+        end_row = data.get("end_row")
+        if not start_row or not end_row:
             return
 
         start_seat = data["start_seat"]
@@ -236,9 +324,9 @@ class SectionView(QWidget):
         continuous = bool(data.get("continuous", False))
 
         # Build rows list (numeric or letter ranges supported)
+        rows = []
         try:
-            rs = int(data["start_row"])
-            re = int(data["end_row"])
+            rs = int(start_row); re = int(end_row)
             if rs <= re:
                 rows = [str(i) for i in range(rs, re + 1)]
             else:
@@ -246,14 +334,15 @@ class SectionView(QWidget):
         except ValueError:
             # letter range
             try:
-                si = ascii_uppercase.index(data["start_row"].upper())
-                ei = ascii_uppercase.index(data["end_row"].upper())
+                si = ascii_uppercase.index(start_row.upper())
+                ei = ascii_uppercase.index(end_row.upper())
                 if si <= ei:
                     rows = list(ascii_uppercase[si:ei+1])
                 else:
                     rows = list(ascii_uppercase[ei:si+1])
-            except ValueError:
-                rows = []
+            except Exception:
+                QMessageBox.warning(self, "Invalid rows", "Could not interpret start/end row range.")
+                return
 
         if not rows:
             return
@@ -264,15 +353,15 @@ class SectionView(QWidget):
         # Continuous numbering logic only supported for numeric seat labels
         if continuous:
             # verify numeric seats
-            if not (str(start_seat).isdigit() and str(end_seat).isdigit()):
+            try:
+                s0 = int(start_seat); s1 = int(end_seat)
+            except Exception:
                 QMessageBox.warning(self, "Continuous numbering",
                                     "Continuous numbering is only supported for numeric seat labels. Falling back to per-row numbering.")
                 continuous = False
 
         if continuous:
             # compute seats per row and sequential numbering across rows
-            s0 = int(start_seat)
-            s1 = int(end_seat)
             if s0 <= s1:
                 seats_per_row = s1 - s0 + 1
                 seq = s0
@@ -286,26 +375,35 @@ class SectionView(QWidget):
                     if parity == "all":
                         self.section.add_seat(_row, seat_label)
                     else:
-                        try:
-                            val = int(seat_label)
-                            keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
-                            if keep:
-                                self.section.add_seat(_row, seat_label)
-                        except ValueError:
-                            # shouldn't happen since we validated numeric, but skip if it does
-                            pass
+                        val = int(seat_label)
+                        keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
+                        if keep:
+                            self.section.add_seat(_row, seat_label)
                     seq += 1
         else:
-            # existing behavior: add same seat range per row or apply parity
+            # standard behavior: apply same seat range for each row
+            seats = alphanum_range(start_seat, end_seat)
+            if not seats:
+                # fallback to numeric if possible
+                try:
+                    a = int(start_seat); b = int(end_seat)
+                    if a > b:
+                        a, b = b, a
+                    seats = [str(i) for i in range(a, b+1)]
+                except Exception:
+                    QMessageBox.warning(self, "Invalid seats", "Could not interpret start/end seat range.")
+                    return
+
             if parity == "all":
                 for r in rows:
-                    self.section.add_seat_range(r, start_seat, end_seat)
+                    for s in seats:
+                        self.section.add_seat(r, s)
             else:
-                seats = alphanum_range(str(start_seat), str(end_seat))
                 for r in rows:
                     for s in seats:
                         if s.isdigit():
-                            keep = (int(s) % 2 == 0) if parity == "even" else (int(s) % 2 == 1)
+                            val = int(s)
+                            keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
                             if keep:
                                 self.section.add_seat(r, s)
                         else:
@@ -382,7 +480,6 @@ class SectionView(QWidget):
         self.zoom_slider.setValue(int(value * 100))
         self.zoom_label.setText(f"{int(value * 100)}%")
         self._updating_slider = False
-
 
 class ZoomableGraphicsView(QGraphicsView):
     def __init__(self, scene, section_view):
