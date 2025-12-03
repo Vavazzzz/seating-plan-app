@@ -98,6 +98,34 @@ class SeatingPlan:
             data = json.load(f)
             self.from_dict(data)
 
+    def import_from_excel(self, file_path: str) -> None:
+        from openpyxl import load_workbook
+
+        wb = load_workbook(filename=file_path, read_only=True)
+        ws = wb.active
+        
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        header_indices = {header: idx for idx, header in enumerate(headers) if header is not None}
+
+        required_headers = {"section", "rows", "seats"}
+        if not required_headers.issubset(header_indices.keys()):
+            raise ValueError(f"Excel file must contain headers: {', '.join(required_headers)}")
+
+        for row in ws.iter_rows(min_row=2):
+            section_name = row[header_indices["section"]].value
+            row_identifier = row[header_indices["rows"]].value
+            seats_str = row[header_indices["seats"]].value
+
+            if section_name is None or row_identifier is None or seats_str is None:
+                continue
+
+            if section_name not in self.sections:
+                self.add_section(section_name)
+
+            seat_labels = [s.strip() for s in seats_str.split(",") if s.strip()]
+            for seat_label in seat_labels:
+                self.sections[section_name].add_seat(row_identifier, seat_label)
+
     def export_to_excel(self, file_path: str) -> None:
         wb = Workbook()
         ws = wb.active
