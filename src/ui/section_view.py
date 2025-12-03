@@ -322,6 +322,7 @@ class SectionView(QWidget):
         end_seat = data["end_seat"]
         parity = data.get("parity", "all")
         continuous = bool(data.get("continuous", False))
+        unnmaberedrows = bool(data.get("unnambered_rows", False))
 
         # Build rows list (numeric or letter ranges supported)
         rows = []
@@ -343,6 +344,9 @@ class SectionView(QWidget):
             except Exception:
                 QMessageBox.warning(self, "Invalid rows", "Could not interpret start/end row range.")
                 return
+
+        if unnmaberedrows:
+            rows = [f"#{r}" for r in rows]
 
         if not rows:
             return

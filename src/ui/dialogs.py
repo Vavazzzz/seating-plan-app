@@ -42,6 +42,12 @@ class RangeInputDialog(QDialog):
             "Continuous numbering only supports numeric seat labels."
         )
 
+        # New: no numbered rows option
+        self.unnamberedrows_checkbox = QCheckBox("No numbered rows")
+        self.unnamberedrows_checkbox.setToolTip(
+            "When checked, row numbers will have # prefix.\n"
+        )
+
         if mode == "seat":
             layout.addRow("Row:", self.row_field)
         else:
@@ -53,6 +59,7 @@ class RangeInputDialog(QDialog):
         layout.addRow("Seat filter:", self.parity_combo)
         if mode == "row":
             layout.addRow(self.continuous_checkbox)
+        layout.addRow(self.unnamberedrows_checkbox)
 
         # Buttons
         self.buttons = QDialogButtonBox(
@@ -72,13 +79,15 @@ class RangeInputDialog(QDialog):
         if self.mode == "seat":
             base.update({
                 "row": self.row_field.text().strip(),
-                "continuous": False
+                "continuous": False,
+                "unnambered_rows" : bool(self.unnamberedrows_checkbox.isChecked())
             })
             return base
         else:
             base.update({
                 "start_row": self.start_row_field.text().strip(),
                 "end_row": self.end_row_field.text().strip(),
-                "continuous": bool(self.continuous_checkbox.isChecked())
+                "continuous": bool(self.continuous_checkbox.isChecked()),
+                "unnambered_rows" : bool(self.unnamberedrows_checkbox.isChecked())
             })
             return base
