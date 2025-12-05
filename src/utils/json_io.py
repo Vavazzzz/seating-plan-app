@@ -94,6 +94,7 @@ def export_to_excel_dialog(parent, seating_plan: SeatingPlan) -> None:
     global _last_dir
     start_dir = str(_last_dir) if _last_dir else ""
     suggested_name = _get_suggested_filename(seating_plan).replace(".json", ".xlsx")
+    suggested_name = 'manifest_' + suggested_name
     path, _ = QFileDialog.getSaveFileName(
         parent,
         "Export seating plan to Excel",
