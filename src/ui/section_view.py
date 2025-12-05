@@ -145,12 +145,38 @@ class SectionView(QWidget):
         all_seat_numbers = sorted({s.seat_number for s in section.seats.values()}, key=seat_key_sort)
 
         def _row_sort_key(value: str):
+            """
+            Sort rows naturally, handling:
+            - Pure numeric: "1", "2", "10"
+            - Pure letters: "A", "B", "Z"
+            - Mixed: "1D", "2D", "A1", "Row5"
+            Extracts numeric and alpha parts for multi-level sorting.
+            """
+            import re
+            # Extract leading digits, trailing digits, and letters
+            match = re.match(r'^(\D*)(\d+)(\D*)$', value)
+            if match:
+                prefix, num, suffix = match.groups()
+                # Sort by: prefix, then number, then suffix
+                return (0, prefix, int(num), suffix)
+            
+            # Try pure numeric
             try:
-                return int(value)
+                return (0, "", int(value), "")
             except ValueError:
-                return value
+                pass
+            
+            # Try extract any numbers from the middle/end
+            nums = re.findall(r'\d+', value)
+            if nums:
+                # has some numbers: sort by first number found, then the string
+                return (1, int(nums[0]), value)
+            
+            # Pure alpha or other: sort lexicographically last
+            return (2, value, 0, "")
 
         sorted_rows = sorted(seats_by_row.keys(), key=_row_sort_key)
+
 
         # Layout constants
         x_spacing = SeatItemRect.WIDTH + 5
