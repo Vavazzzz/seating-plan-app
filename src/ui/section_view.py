@@ -291,9 +291,14 @@ class SectionView(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         data = dialog.get_values()
-        row = data.get("row")
-        if not row:
+        row_raw = data.get("row")
+        prefix = data.get("row_prefix", "") or ""
+        suffix = data.get("row_suffix", "") or ""
+        if not row_raw:
             return
+        
+        # compose final row label with prefix/suffix
+        row_label = f"{prefix}{row_raw}{suffix}"
 
         start = data["start_seat"]
         end = data["end_seat"]
@@ -317,14 +322,14 @@ class SectionView(QWidget):
 
         if parity == "all":
             for s in seats:
-                self.section.add_seat(row, s)
+                self.section.add_seat(row_label, s)
         else:
             for s in seats:
                 if s.isdigit():
                     val = int(s)
                     keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
                     if keep:
-                        self.section.add_seat(row, s)
+                        self.section.add_seat(row_label, s)
                 else:
                     # skip non-numeric seat labels for even/odd parity
                     continue
@@ -341,6 +346,8 @@ class SectionView(QWidget):
         data = dialog.get_values()
         start_row = data.get("start_row")
         end_row = data.get("end_row")
+        prefix = data.get("row_prefix", "") or ""
+        suffix = data.get("row_suffix", "") or ""
         if not start_row or not end_row:
             return
 
@@ -351,28 +358,31 @@ class SectionView(QWidget):
         unnmaberedrows = bool(data.get("unnambered_rows", False))
 
         # Build rows list (numeric or letter ranges supported)
-        rows = []
+        rows_raw = []
         try:
             rs = int(start_row); re = int(end_row)
             if rs <= re:
-                rows = [str(i) for i in range(rs, re + 1)]
+                rows_raw = [str(i) for i in range(rs, re + 1)]
             else:
-                rows = [str(i) for i in range(re, rs + 1)]
+                rows_raw = [str(i) for i in range(re, rs + 1)]
         except ValueError:
             # letter range
             try:
                 si = ascii_uppercase.index(start_row.upper())
                 ei = ascii_uppercase.index(end_row.upper())
                 if si <= ei:
-                    rows = list(ascii_uppercase[si:ei+1])
+                    rows_raw = list(ascii_uppercase[si:ei+1])
                 else:
-                    rows = list(ascii_uppercase[ei:si+1])
+                    rows_raw = list(ascii_uppercase[ei:si+1])
             except Exception:
                 QMessageBox.warning(self, "Invalid rows", "Could not interpret start/end row range.")
                 return
 
         if unnmaberedrows:
-            rows = [f"#{r}" for r in rows]
+            rows = [f"#{r}" for r in rows_raw]
+        else:
+        # Compose final row labels with prefix/suffix
+            rows = [f"{prefix}{r}{suffix}" for r in rows_raw]
 
         if not rows:
             return

@@ -8,8 +8,13 @@ class RangeInputDialog(QDialog):
     Generic dialog for creating seat or row ranges.
     mode: "seat" or "row"
 
-    Note: start/end seat fields accept text so both numeric and letter labels are possible
-    (e.g. '1'..'10' or 'A'..'F').
+    Fields:
+      - For seat mode:
+          row (text), row_prefix, row_suffix, start_seat (text), end_seat (text),
+          parity (All/Even/Odd)
+      - For row mode:
+          start_row (text), end_row (text), row_prefix, row_suffix, start_seat (text),
+          end_seat (text), parity (All/Even/Odd), continuous (bool)
     """
     def __init__(self, mode: str, parent=None):
         super().__init__(parent)
@@ -23,6 +28,12 @@ class RangeInputDialog(QDialog):
         self.row_field = QLineEdit()
         self.start_row_field = QLineEdit()
         self.end_row_field = QLineEdit()
+
+        # Prefix / suffix for row labels (applies to both modes)
+        self.row_prefix_field = QLineEdit()
+        self.row_prefix_field.setPlaceholderText("Optional prefix (before row label)")
+        self.row_suffix_field = QLineEdit()
+        self.row_suffix_field.setPlaceholderText("Optional suffix (after row label)")
 
         # Seat inputs: text fields so letters are supported. Keep a small width hint.
         self.start_seat_field = QLineEdit()
@@ -54,6 +65,10 @@ class RangeInputDialog(QDialog):
             layout.addRow("Start row:", self.start_row_field)
             layout.addRow("End row:", self.end_row_field)
 
+        # Prefix/suffix appear for both modes
+        layout.addRow("Row prefix:", self.row_prefix_field)
+        layout.addRow("Row suffix:", self.row_suffix_field)
+
         layout.addRow("Start seat:", self.start_seat_field)
         layout.addRow("End seat:", self.end_seat_field)
         layout.addRow("Seat filter:", self.parity_combo)
@@ -80,7 +95,9 @@ class RangeInputDialog(QDialog):
             base.update({
                 "row": self.row_field.text().strip(),
                 "continuous": False,
-                "unnambered_rows" : bool(self.unnamberedrows_checkbox.isChecked())
+                "unnambered_rows" : bool(self.unnamberedrows_checkbox.isChecked()),
+                "row_prefix" : self.row_prefix_field.text().strip(),
+                "row_suffix" : self.row_suffix_field.text().strip()
             })
             return base
         else:
@@ -88,6 +105,8 @@ class RangeInputDialog(QDialog):
                 "start_row": self.start_row_field.text().strip(),
                 "end_row": self.end_row_field.text().strip(),
                 "continuous": bool(self.continuous_checkbox.isChecked()),
-                "unnambered_rows" : bool(self.unnamberedrows_checkbox.isChecked())
+                "unnambered_rows" : bool(self.unnamberedrows_checkbox.isChecked()),
+                "row_prefix" : self.row_prefix_field.text().strip(),
+                "row_suffix" : self.row_suffix_field.text().strip()
             })
             return base
