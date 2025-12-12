@@ -29,7 +29,7 @@ The Seating Plan Application is a GUI-based tool designed to help users create a
 ## Usage
 To run the application, execute the following command:
 ```
-python src/gui_app.py
+python -m src.ui.main_window
 ```
 
 ## Project Structure

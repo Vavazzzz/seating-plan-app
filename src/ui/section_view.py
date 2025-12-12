@@ -381,7 +381,7 @@ class SectionView(QWidget):
         if unnmaberedrows:
             rows = [f"#{r}" for r in rows_raw]
         else:
-        # Compose final row labels with prefix/suffix
+            # Compose final row labels with prefix/suffix
             rows = [f"{prefix}{r}{suffix}" for r in rows_raw]
 
         if not rows:
