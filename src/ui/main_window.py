@@ -8,9 +8,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
-from string import ascii_uppercase
 from ..models.seating_plan import SeatingPlan
-from ..utils.json_io import import_project_dialog, import_from_excel_dialog, export_project_dialog, export_to_excel_dialog
+from ..utils.json_io import import_project_dialog, import_from_excel_dialog, import_from_avail_dialog, export_project_dialog, export_to_excel_dialog
 from .section_view import SectionView
 
 class MainWindow(QMainWindow):
@@ -99,6 +98,12 @@ class MainWindow(QMainWindow):
         import_excel_action.setToolTip("Import seating plan from Excel")
         import_excel_action.triggered.connect(self.import_from_excel)
         file_menu.addAction(import_excel_action)
+
+        # Import seating plan from Avail file
+        import_avail_action = QAction("Import from avail (XML)...", self)
+        import_avail_action.setToolTip("Import seating plan from Avail file")
+        import_avail_action.triggered.connect(self.import_from_avail)
+        file_menu.addAction(import_avail_action)
 
         # Export seating plan to Excel
         export_excel_action = QAction("Export Excel...", self)
@@ -288,6 +293,16 @@ class MainWindow(QMainWindow):
             self.refresh_section_table()
             self.refresh_view()
             self.status_label.setText("\ud83d\udcc2 Imported seating plan from Excel")
+
+    def import_from_avail(self):
+        # import Avail XML as a new plan - push undo first
+        self.push_undo_snapshot("import from Avail")
+        sp = import_from_avail_dialog(self)
+        if sp:
+            self.seating_plan = sp
+            self.refresh_section_table()
+            self.refresh_view()
+            self.status_label.setText("\ud83d\udcc2 Imported seating plan from Avail file")
 
     def export_project(self):
         export_project_dialog(self, self.seating_plan)

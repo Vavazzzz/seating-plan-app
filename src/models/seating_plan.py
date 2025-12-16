@@ -1,7 +1,8 @@
 import json
 import re
+from bs4 import BeautifulSoup
 from openpyxl import Workbook
-from typing import Dict, Any, List
+from typing import Dict, List
 from .section import Section
 
 class SeatingPlan:
@@ -115,6 +116,76 @@ class SeatingPlan:
             section_name = row[header_indices["section"]].value
             row_identifier = row[header_indices["rows"]].value
             seats_str = row[header_indices["seats"]].value
+
+            if section_name is None or row_identifier is None or seats_str is None:
+                continue
+
+            if section_name not in self.sections:
+                self.add_section(section_name)
+
+            seat_labels = [s.strip() for s in seats_str.split(",") if s.strip()]
+            for seat_label in seat_labels:
+                self.sections[section_name].add_seat(row_identifier, seat_label)
+
+    def import_from_avail(self, file_path: str) -> None:
+       
+        txt = file_path 
+        with open(txt, 'r', encoding='utf-8') as f:
+            content = f.read()
+        def get_dict_per_row(tag):
+            secname = tag.find('section_name')
+            secname = secname.text
+            seccode = tag.find( 'secnam_list')
+            seccode = seccode.text
+            row_tag = tag.find('row_names')
+            row_nums = row_tag.find_all('e')
+            row_nums = [row.text for row in row_nums]
+            row_nums.sort()
+            seats_tag = tag.find('seat_names')
+            seat_nums = seats_tag.find_all('e')
+            seat_nums = [seat.text for seat in seat_nums]
+            seat_nums.sort()
+            rows = ','.join(row_nums)
+            seats = ','.join(seat_nums)
+            isga = tag.find('is_ga')
+
+            if isga.text == 'true':
+                type = 1
+                capacity = 1
+                rows = None
+                seats = None
+            else:
+                type = 0 
+                capacity = None
+
+            rows_dict = {'section' : secname, 'rows' : rows, 'seats' : seats, 'secnam' : seccode, 'type' : type, 'capacity' : capacity}
+            rows_dict = {k: v.replace('\n', '').strip() if isinstance(v, str) else v for k, v in rows_dict.items()}
+
+            return rows_dict
+
+        def avail_parser( content: str) -> None:
+            """Parse Avail XML content and populate the seating plan."""
+            soup = BeautifulSoup(content,'lxml' )
+
+            section_id_list = soup.find('section_id_list')
+
+            section_tags = []
+
+            for e in section_id_list.find_all('e'):
+                if e.find('section_id') is not None:
+                    section_tags.append(e)
+
+            dicts = []
+            for tag in section_tags:
+                dict = get_dict_per_row(tag)
+
+                dicts.append(dict)
+            return dicts
+        dicts = avail_parser(content)
+        for row_dict in dicts:
+            section_name = row_dict['section']
+            row_identifier = row_dict['rows']
+            seats_str = row_dict['seats']
 
             if section_name is None or row_identifier is None or seats_str is None:
                 continue
