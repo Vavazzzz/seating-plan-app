@@ -6,13 +6,13 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from ..models.section import Section
-from ..utils.alphanum_handler import alphanum_range
+from ..utils.alphanum_handler import alphanum_range, alphanum_sort_key
 from .dialogs import RangeInputDialog
 from string import ascii_uppercase
 
 class SeatItemRect:
-    WIDTH = 20
-    HEIGHT = 20
+    WIDTH = 25
+    HEIGHT = 25
 
 class SeatItem(QGraphicsRectItem):
     def __init__(self, row, seat):
@@ -26,7 +26,14 @@ class SeatItem(QGraphicsRectItem):
         self.setBrush(QBrush(Qt.GlobalColor.lightGray))
         self.setPen(QPen(Qt.GlobalColor.black))
         self.text_item = QGraphicsSimpleTextItem(str(seat), self)
-        self.text_item.setPos(SeatItemRect.WIDTH / 4, SeatItemRect.HEIGHT / 6)
+        # CENTER THE TEXT
+        self.center_text()
+
+    def center_text(self):
+        text_rect = self.text_item.boundingRect()
+        x = (SeatItemRect.WIDTH - text_rect.width()) / 2
+        y = (SeatItemRect.HEIGHT - text_rect.height()) / 2
+        self.text_item.setPos(x, y)
 
     def update_visual(self):
         self.setBrush(QBrush(Qt.GlobalColor.green if self.isSelected() else Qt.GlobalColor.lightGray))
@@ -135,48 +142,9 @@ class SectionView(QWidget):
         for seat in section.seats.values():
             seats_by_row.setdefault(seat.row_number, []).append(seat)
 
-        # Determine all seat numbers used across the section
-        def seat_key_sort(n: str):
-            try:
-                return int(n)
-            except Exception:
-                return n
+        all_seat_numbers = sorted({s.seat_number for s in section.seats.values()}, key=alphanum_sort_key)
 
-        all_seat_numbers = sorted({s.seat_number for s in section.seats.values()}, key=seat_key_sort)
-
-        def _row_sort_key(value: str):
-            """
-            Sort rows naturally, handling:
-            - Pure numeric: "1", "2", "10"
-            - Pure letters: "A", "B", "Z"
-            - Mixed: "1D", "2D", "A1", "Row5"
-            Extracts numeric and alpha parts for multi-level sorting.
-            """
-            import re
-            # Extract leading digits, trailing digits, and letters
-            match = re.match(r'^(\D*)(\d+)(\D*)$', value)
-            if match:
-                prefix, num, suffix = match.groups()
-                # Sort by: prefix, then number, then suffix
-                return (0, prefix, int(num), suffix)
-            
-            # Try pure numeric
-            try:
-                return (0, "", int(value), "")
-            except ValueError:
-                pass
-            
-            # Try extract any numbers from the middle/end
-            nums = re.findall(r'\d+', value)
-            if nums:
-                # has some numbers: sort by first number found, then the string
-                return (1, int(nums[0]), value)
-            
-            # Pure alpha or other: sort lexicographically last
-            return (2, value, 0, "")
-
-        sorted_rows = sorted(seats_by_row.keys(), key=_row_sort_key)
-
+        sorted_rows = sorted(seats_by_row.keys(), key=alphanum_sort_key)
 
         # Layout constants
         x_spacing = SeatItemRect.WIDTH + 5

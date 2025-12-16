@@ -1,4 +1,4 @@
-import string
+import re
 
 def to_index(val: str) -> int:
     """Convert a string (digit or uppercase letter) to an integer index."""
@@ -37,3 +37,27 @@ def alphanum_range(start: str, end: str) -> list[str]:
         return [from_index(i, is_digit) for i in range(start_idx, end_idx + 1)]
     except Exception:
         return []
+    
+# Alphanumeric sorting helper
+def alphanum_sort_key(value: str):
+    # Extract leading digits, trailing digits, and letters
+    match = re.match(r'^(\D*)(\d+)(\D*)$', value)
+    if match:
+        prefix, num, suffix = match.groups()
+        # Sort by: prefix, then number, then suffix
+        return (0, prefix, int(num), suffix)
+    
+    # Try pure numeric
+    try:
+        return (0, "", int(value), "")
+    except ValueError:
+        pass
+    
+    # Try extract any numbers from the middle/end
+    nums = re.findall(r'\d+', value)
+    if nums:
+        # has some numbers: sort by first number found, then the string
+        return (1, int(nums[0]), value)
+    
+    # Pure alpha or other: sort lexicographically last
+    return (2, value, 0, "")
