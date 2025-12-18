@@ -10,7 +10,7 @@ class Section:
         self.name: str = name
         # Seats keyed by "ROW-SEAT"
         self.seats: Dict[str, Seat] = {}
-        self.is_ga: bool = False
+        self.is_ga: bool = is_ga
 
     # ---- Seat Manipulation ----
     def add_seat(self, row: str, seat_number: str) -> None:
@@ -105,9 +105,11 @@ class Section:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'Section':
-        section = cls(data["name"])
+        """Deserialize section from hierarchical JSON structure."""
+        section = cls(data["name"], is_ga=data.get("is_ga", False))
         for row_data in data.get("rows", []):
-            row = row_data["row_number"]
+            row_number = row_data["row_number"]
             for seat_data in row_data.get("seats", []):
-                section.add_seat(row, str(seat_data["seat_number"]))
+                seat_number = seat_data["seat_number"]
+                section.add_seat(row_number, seat_number)
         return section
