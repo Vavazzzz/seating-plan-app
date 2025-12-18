@@ -127,9 +127,14 @@ class RenumberRowsDialog(QDialog):
         
         # Input for new starting row
         self.start_row_input = QLineEdit()
-        self.start_row_input.setPlaceholderText("e.g., 1 or A")
+        self.start_row_input. setPlaceholderText("e.g., 1 or A")
         self.start_row_input.setText("1")
         layout.addRow("Start numbering from:", self.start_row_input)
+        
+        # Unnumbered rows checkbox
+        self.is_unnumbered_checkbox = QCheckBox("Unnumbered Rows")
+        self.is_unnumbered_checkbox.setToolTip("Add '#' prefix to row numbers for unnumbered rows")
+        layout.addRow("", self.is_unnumbered_checkbox)
         
         # Info label
         info = QLabel("Rows will be numbered sequentially from the starting number.")
@@ -148,4 +153,9 @@ class RenumberRowsDialog(QDialog):
         self.setLayout(layout)
     
     def get_start_row(self) -> str:
+        """Get the starting row number (without prefix - prefix is added separately)."""
         return self.start_row_input. text().strip()
+    
+    def is_unnumbered_enabled(self) -> bool:
+        """Return whether unnumbered mode is enabled."""
+        return self. is_unnumbered_checkbox. isChecked()

@@ -453,12 +453,12 @@ class SectionView(QWidget):
 
     def renumber_selected_rows(self):
         """Renumber selected rows with user-specified starting row."""
-        if not self.section:
+        if not self.section: 
             return
         
         # Get selected seats
         selected = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
-        if not selected: 
+        if not selected:  
             QMessageBox.warning(self, "No Selection", "Please select seats to renumber their rows.")
             return
         
@@ -483,17 +483,25 @@ class SectionView(QWidget):
             QMessageBox.warning(self, "Invalid Input", "Please enter a starting row number.")
             return
         
+        is_unnumbered = dialog.is_unnumbered_enabled()
+        
         # Apply renumbering
         try:
-            self.aboutToModify.emit()
-            self.section.renumber_rows(selected_rows, new_start)
+            self.aboutToModify. emit()
+            self.section. renumber_rows(selected_rows, new_start, add_prefix=is_unnumbered)
             self.load_section(self.section)
             self.sectionModified.emit()
-            QMessageBox.information(self, "Success", f"Rows renumbered successfully!")
-        except Exception as e: 
+            
+            # Show success message with details
+            unnumbered_text = " (Unnumbered)" if is_unnumbered else ""
+            QMessageBox.information(
+                self, 
+                "Success", 
+                f"Rows renumbered successfully!{unnumbered_text}\nStarting from:  {new_start}"
+            )
+        except Exception as e:  
             QMessageBox.critical(self, "Error", f"Failed to renumber rows: {str(e)}")
 
-    
     # ---------- Selection ----------
     def on_selection_changed(self):
         selected = [it for it in self.scene.selectedItems() if isinstance(it, SeatItem)]

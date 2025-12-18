@@ -68,19 +68,17 @@ class Section:
             new_key = f"{row}-{new_seat_number}"
             self.seats[new_key] = seat
 
-    def renumber_rows(self, old_rows:  list[str], new_start_row: str):
+    def renumber_rows(self, old_rows_ordered: list[str], new_start_row: str, add_prefix: bool = False):
         """
         Renumber multiple rows sequentially starting from new_start_row.
         
         Args:
             old_rows_ordered: List of row numbers to renumber (in order)
-            new_start_row: Starting row number (can be numeric or alphanumeric)
+            new_start_row:  Starting row number (can be numeric or alphanumeric)
+            add_prefix: If True, add '#' prefix to all new row numbers
         """
-        if not old_rows:
+        if not old_rows_ordered: 
             return
-        
-        # Sort old rows in alphanumeric order
-        old_rows_ordered = sorted(old_rows, key=alphanum_sort_key)
         
         # Determine if we're working with digits or letters
         is_digit = new_start_row.isdigit()
@@ -92,21 +90,25 @@ class Section:
             for i in range(len(old_rows_ordered))
         ]
         
+        # Add prefix if requested
+        if add_prefix:
+            new_rows = [f"#{row}" for row in new_rows]
+        
         # Build mapping of old -> new rows
         row_mapping = dict(zip(old_rows_ordered, new_rows))
-
+        
         # Create a list of (old_key, new_key) pairs
         changes = []
         for old_key in list(self.seats.keys()):
             seat = self.seats[old_key]
             old_row = seat.row_number
-            if old_row in row_mapping: 
+            if old_row in row_mapping:
                 new_row = row_mapping[old_row]
-                _, seat_number = old_key.split('-', 1)
+                _, seat_number = old_key. split('-', 1)
                 new_key = f"{new_row}-{seat_number}"
                 changes.append((old_key, new_key, new_row))
-            
-            # Apply changes
+        
+        # Apply changes
         for old_key, new_key, new_row in changes:
             seat = self.seats[old_key]
             seat.row_number = new_row
