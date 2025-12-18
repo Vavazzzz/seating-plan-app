@@ -7,7 +7,7 @@ from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from ..models.section import Section
 from ..utils.alphanum_handler import alphanum_range, alphanum_sort_key
-from .dialogs import RangeInputDialog
+from .dialogs import RangeInputDialog, RenumberRowsDialog
 from string import ascii_uppercase
 
 class SeatItemRect:
@@ -59,12 +59,15 @@ class SectionView(QWidget):
         self.btn_delete_seat.setToolTip("Delete selected seats (Del).")
         self.btn_delete_row = QPushButton("\U0001F5D1 Delete Rows")
         self.btn_delete_row.setToolTip("Delete selected rows (by selecting seats in those rows).")
+        self.btn_renumber_rows = QPushButton("\U0001F503 Renumber Rows")
+        self.btn_renumber_rows.setToolTip("Renumber rows sequentially (not implemented).")
 
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.btn_add_seat_range)
         controls_layout.addWidget(self.btn_add_row_range)
         controls_layout.addWidget(self.btn_delete_seat)
         controls_layout.addWidget(self.btn_delete_row)
+        controls_layout.addWidget(self.btn_renumber_rows)
         controls_layout.addStretch()
 
         # ---- Buttons shortcuts ----
@@ -110,6 +113,7 @@ class SectionView(QWidget):
         self.btn_add_row_range.clicked.connect(self.add_row_range_dialog)
         self.btn_delete_seat.clicked.connect(self.delete_selected_seats)
         self.btn_delete_row.clicked.connect(self.delete_selected_rows)
+        self.btn_renumber_rows.clicked.connect(self.renumber_selected_rows)
 
         # Context menu for move seats
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -447,6 +451,49 @@ class SectionView(QWidget):
         self.load_section(self.section)
         self.sectionModified.emit()
 
+    def renumber_selected_rows(self):
+        """Renumber selected rows with user-specified starting row."""
+        if not self.section:
+            return
+        
+        # Get selected seats
+        selected = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
+        if not selected: 
+            QMessageBox.warning(self, "No Selection", "Please select seats to renumber their rows.")
+            return
+        
+        # Extract unique rows from selected seats, maintaining order of appearance
+        selected_rows = []
+        seen = set()
+        for item in selected:
+            if item.row not in seen:
+                selected_rows.append(item.row)
+                seen.add(item.row)
+        
+        if not selected_rows:
+            return
+        
+        # Show dialog
+        dialog = RenumberRowsDialog(selected_rows, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        
+        new_start = dialog.get_start_row()
+        if not new_start:
+            QMessageBox.warning(self, "Invalid Input", "Please enter a starting row number.")
+            return
+        
+        # Apply renumbering
+        try:
+            self.aboutToModify.emit()
+            self.section.renumber_rows(selected_rows, new_start)
+            self.load_section(self.section)
+            self.sectionModified.emit()
+            QMessageBox.information(self, "Success", f"Rows renumbered successfully!")
+        except Exception as e: 
+            QMessageBox.critical(self, "Error", f"Failed to renumber rows: {str(e)}")
+
+    
     # ---------- Selection ----------
     def on_selection_changed(self):
         selected = [it for it in self.scene.selectedItems() if isinstance(it, SeatItem)]

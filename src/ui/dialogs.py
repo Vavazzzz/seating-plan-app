@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import (
-    QDialog, QFormLayout, QLineEdit, QSpinBox, QComboBox, QDialogButtonBox, QCheckBox
+    QDialog, QFormLayout, QLineEdit, QComboBox, QDialogButtonBox, QCheckBox, QLabel, QMessageBox
 )
-from PyQt6.QtCore import Qt
 
 class RangeInputDialog(QDialog):
     """
@@ -110,3 +109,43 @@ class RangeInputDialog(QDialog):
                 "row_suffix" : self.row_suffix_field.text().strip()
             })
             return base
+
+class RenumberRowsDialog(QDialog):
+    """Dialog to ask for starting row number for renumbering."""
+    
+    def __init__(self, selected_rows: list[str], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Renumber Rows")
+        self.setModal(True)
+        self.selected_rows = selected_rows
+        
+        layout = QFormLayout()
+        
+        # Display selected rows
+        selected_text = ", ".join(selected_rows)
+        layout.addRow("Selected rows:", QLabel(selected_text))
+        
+        # Input for new starting row
+        self.start_row_input = QLineEdit()
+        self.start_row_input.setPlaceholderText("e.g., 1 or A")
+        self.start_row_input.setText("1")
+        layout.addRow("Start numbering from:", self.start_row_input)
+        
+        # Info label
+        info = QLabel("Rows will be numbered sequentially from the starting number.")
+        info.setStyleSheet("color: gray; font-size: 10px;")
+        layout.addRow("", info)
+        
+        # Buttons
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | 
+            QDialogButtonBox. StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+        
+        self.setLayout(layout)
+    
+    def get_start_row(self) -> str:
+        return self.start_row_input. text().strip()

@@ -1,7 +1,7 @@
 from typing import Dict, List, Any, Union
 from .seat import Seat
 import copy
-from ..utils.alphanum_handler import alphanum_range
+from ..utils.alphanum_handler import alphanum_range, to_index, from_index, alphanum_sort_key
 
 class Section:
     """Represents a section containing multiple seats."""
@@ -68,12 +68,47 @@ class Section:
             new_key = f"{row}-{new_seat_number}"
             self.seats[new_key] = seat
 
-    def change_row_number(self, old_row: str, new_row: str) -> None:
-        keys_to_change = [k for k in self.seats.keys() if k.startswith(f"{old_row}-")]
-        for old_key in keys_to_change:
+    def renumber_rows(self, old_rows:  list[str], new_start_row: str):
+        """
+        Renumber multiple rows sequentially starting from new_start_row.
+        
+        Args:
+            old_rows_ordered: List of row numbers to renumber (in order)
+            new_start_row: Starting row number (can be numeric or alphanumeric)
+        """
+        if not old_rows:
+            return
+        
+        # Sort old rows in alphanumeric order
+        old_rows_ordered = sorted(old_rows, key=alphanum_sort_key)
+        
+        # Determine if we're working with digits or letters
+        is_digit = new_start_row.isdigit()
+        start_idx = to_index(new_start_row)
+        
+        # Generate new row numbers
+        new_rows = [
+            from_index(start_idx + i, is_digit) 
+            for i in range(len(old_rows_ordered))
+        ]
+        
+        # Build mapping of old -> new rows
+        row_mapping = dict(zip(old_rows_ordered, new_rows))
+
+        # Create a list of (old_key, new_key) pairs
+        changes = []
+        for old_key in list(self.seats.keys()):
             seat = self.seats[old_key]
-            _, seat_number = old_key.split('-', 1)
-            new_key = f"{new_row}-{seat_number}"
+            old_row = seat.row_number
+            if old_row in row_mapping: 
+                new_row = row_mapping[old_row]
+                _, seat_number = old_key.split('-', 1)
+                new_key = f"{new_row}-{seat_number}"
+                changes.append((old_key, new_key, new_row))
+            
+            # Apply changes
+        for old_key, new_key, new_row in changes:
+            seat = self.seats[old_key]
             seat.row_number = new_row
             self.seats[new_key] = seat
             del self.seats[old_key]
