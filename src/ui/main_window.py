@@ -4,7 +4,8 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QDockWidget, QInputDialog, QFileDialog,
     QMessageBox, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QHeaderView, QStatusBar, QLabel
+    QPushButton, QHeaderView, QStatusBar, QLabel, QCheckBox,
+    QDialog, QLineEdit, QDialogButtonBox
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
@@ -313,10 +314,29 @@ class MainWindow(QMainWindow):
         self.status_label.setText("\ud83d\udcbe Exported seating plan to Excel")
 
     def add_section_dialog(self):
-        name, ok = QInputDialog.getText(self, "New section", "Section name:")
-        if not ok or not name:
+        dlg = QDialog(self)
+        dlg.setWindowTitle("New section")
+        layout = QVBoxLayout(dlg)
+
+        name_edit = QLineEdit(dlg)
+        name_edit.setPlaceholderText("Section name")
+        layout.addWidget(name_edit)
+
+        is_ga_cb = QCheckBox("Is General Admission (GA)?", dlg)
+        layout.addWidget(is_ga_cb)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            parent=dlg
+        )
+        layout.addWidget(buttons)
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
             return
-        name = name.strip()
+
+        name = name_edit.text().strip()
         if not name:
             QMessageBox.warning(self, "Invalid name", "Section name cannot be empty.")
             return
@@ -328,16 +348,19 @@ class MainWindow(QMainWindow):
         self.push_undo_snapshot(f"Add section '{name}'")
 
         # create section
-        self.seating_plan.add_section(name)
+        if is_ga_cb.isChecked():
+            self.seating_plan.add_section(name=name, is_ga=True)
+        else:
+            self.seating_plan.add_section(name=name, is_ga=is_ga_cb.isChecked())
 
-        # Load the newly created section into the view
-        section_obj = self.seating_plan.sections.get(name)
-        if section_obj:
-            self.section_view.load_section(section_obj)
-            try:
-                self.section_view.add_row_range_dialog()
-            except Exception as e:
-                QMessageBox.warning(self, "Add rows", f"Could not open advanced dialog: {e}")
+            # Load the newly created section into the view
+            section_obj = self.seating_plan.sections.get(name)
+            if section_obj:
+                self.section_view.load_section(section_obj)
+                try:
+                    self.section_view.add_row_range_dialog()
+                except Exception as e:
+                    QMessageBox.warning(self, "Add rows", f"Could not open advanced dialog: {e}")
 
         # refresh UI to show added rows/seats
         self.refresh_section_table()

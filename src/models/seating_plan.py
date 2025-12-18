@@ -13,9 +13,10 @@ class SeatingPlan:
         self.name: str = name or "Unnamed Plan"
 
     # ---- Section Manipulation ----
-    def add_section(self, name: str) -> None:
+    def add_section(self, name: str, is_ga: bool = False) -> None:
         if name not in self.sections:
-            self.sections[name] = Section(name)
+            self.sections[name] = Section(name, is_ga=is_ga)
+            self.sections[name].is_ga = is_ga
 
     def delete_section(self, name: str) -> None:
         self.sections.pop(name, None)
@@ -132,6 +133,7 @@ class SeatingPlan:
         txt = file_path 
         with open(txt, 'r', encoding='utf-8') as f:
             content = f.read()
+        
         def get_dict_per_row(tag):
             secname = tag.find('section_name')
             secname = secname.text
@@ -193,9 +195,11 @@ class SeatingPlan:
             if section_name not in self.sections:
                 self.add_section(section_name)
 
+            row_labels = [r.strip() for r in row_identifier.split(",") if r.strip()]
             seat_labels = [s.strip() for s in seats_str.split(",") if s.strip()]
-            for seat_label in seat_labels:
-                self.sections[section_name].add_seat(row_identifier, seat_label)
+            for row_label in row_labels:
+                for seat_label in seat_labels:
+                    self.sections[section_name].add_seat(row_label, seat_label)
 
     def export_to_excel(self, file_path: str) -> None:
         wb = Workbook()
@@ -207,6 +211,15 @@ class SeatingPlan:
 
         # Iterate through sections and rows
         for section in self.sections.values():
+            if section.is_ga:
+                ws.append([
+                    section.name,           # section
+                    "",                     # rows
+                    "",                     # seats
+                    section.name,           # secnam
+                    "1",                    # capacity (set to 1)
+                    1                       # type (1 for GA)
+                ])
             rows = {}
             for seat in section.seats.values():
                 rows.setdefault(seat.row_number, []).append(str(seat.seat_number))
@@ -222,6 +235,6 @@ class SeatingPlan:
                     ",".join(seat_list_sorted),  # seats
                     section.name,             # secnam
                     "",                       # capacity (blank)
-                    0                         # type (always 0)
+                    0                         # type  (0 for seated)
                 ])
         wb.save(file_path)

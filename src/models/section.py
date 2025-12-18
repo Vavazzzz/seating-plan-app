@@ -6,10 +6,11 @@ from ..utils.alphanum_handler import alphanum_range
 class Section:
     """Represents a section containing multiple seats."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, is_ga: bool = False) -> None:
         self.name: str = name
         # Seats keyed by "ROW-SEAT"
         self.seats: Dict[str, Seat] = {}
+        self.is_ga: bool = False
 
     # ---- Seat Manipulation ----
     def add_seat(self, row: str, seat_number: str) -> None:
@@ -100,7 +101,7 @@ class Section:
                 "row_number": row_number,
                 "seats": [{"seat_number": s.seat_number} for s in seats_sorted]
             })
-        return {"name": self.name, "rows": rows_list}
+        return {"name": self.name, "is_ga": self.is_ga, "rows": rows_list}
 
     @classmethod
     def from_dict(cls, data: dict) -> 'Section':
