@@ -24,16 +24,16 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build executable
+      - name: Build with PyInstaller
         run: |
           pyinstaller SeatingPlan.spec
 
-      - name: Zip build
+      - name: Zip distribution folder
         run: |
           cd dist
           powershell Compress-Archive SeatingPlan SeatingPlan-Windows.zip
 
-      - name: Create GitHub Release
+      - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/SeatingPlan-Windows.zip
