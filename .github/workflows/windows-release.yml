@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -28,6 +31,13 @@ jobs:
         run: |
           pyinstaller SeatingPlan.spec
 
+      - name: Verify build output
+        run: |
+          if (!(Test-Path "dist/SeatingPlan/SeatingPlan.exe")) {
+            Write-Error "Build failed: SeatingPlan.exe not found"
+            exit 1
+          }
+
       - name: Zip distribution folder
         run: |
           cd dist
@@ -37,5 +47,3 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/SeatingPlan-Windows.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
