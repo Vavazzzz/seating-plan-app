@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QVBoxLayout, QHBoxLayout, QPushButton,
     QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame,
-    QMenu, QInputDialog, QMessageBox, QDialog
+    QMenu, QInputDialog, QMessageBox, QDialog, QTextEdit, QGroupBox, QLineEdit,
+    QDialogButtonBox, QComboBox, QCheckBox
 )
 from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
@@ -55,6 +56,8 @@ class SectionView(QWidget):
         self.btn_add_seat_range.setToolTip("Add seat range (opens a single dialog).")
         self.btn_add_row_range = QPushButton("\u2795 Add Row Range")
         self.btn_add_row_range.setToolTip("Add multiple rows with seat ranges.")
+        self.btn_add_custom_rows = QPushButton("\u2795 Add Custom Rows")
+        self.btn_add_custom_rows.setToolTip("Add seats to custom rows (input rows as text lines).")
         self.btn_delete_seat = QPushButton("\U0001F5D1 Delete Seats")
         self.btn_delete_seat.setToolTip("Delete selected seats (Del).")
         self.btn_delete_row = QPushButton("\U0001F5D1 Delete Rows")
@@ -65,6 +68,7 @@ class SectionView(QWidget):
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.btn_add_seat_range)
         controls_layout.addWidget(self.btn_add_row_range)
+        controls_layout.addWidget(self.btn_add_custom_rows)
         controls_layout.addWidget(self.btn_delete_seat)
         controls_layout.addWidget(self.btn_delete_row)
         controls_layout.addWidget(self.btn_renumber_rows)
@@ -111,6 +115,7 @@ class SectionView(QWidget):
         # Connect buttons
         self.btn_add_seat_range.clicked.connect(self.add_seat_range_dialog)
         self.btn_add_row_range.clicked.connect(self.add_row_range_dialog)
+        self.btn_add_custom_rows.clicked.connect(self.add_custom_rows_dialog)
         self.btn_delete_seat.clicked.connect(self.delete_selected_seats)
         self.btn_delete_row.clicked.connect(self.delete_selected_rows)
         self.btn_renumber_rows.clicked.connect(self.renumber_selected_rows)
@@ -424,6 +429,180 @@ class SectionView(QWidget):
 
         self.load_section(self.section)
         self.sectionModified.emit()
+
+    def add_custom_rows_dialog(self):
+        """Add seats to custom rows specified as text input (one row per line)."""
+        if not self.section:
+            return
+        
+        # Create dialog for custom rows input
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Custom Rows")
+        dialog.setGeometry(100, 100, 600, 500)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Label for rows
+        rows_label = QLabel("Enter row numbers (one per line):")
+        layout.addWidget(rows_label)
+        
+        # Text edit for custom rows
+        rows_input = QTextEdit()
+        rows_input.setPlaceholderText("Enter rows here, one per line:\nA\nB\nC\n...")
+        layout.addWidget(rows_input)
+        
+        # Seat range section
+        seat_group = QGroupBox("Seat Range")
+        seat_layout = QVBoxLayout()
+        
+        start_seat_label = QLabel("Start Seat:")
+        start_seat_input = QLineEdit()
+        seat_layout.addWidget(start_seat_label)
+        seat_layout.addWidget(start_seat_input)
+        
+        end_seat_label = QLabel("End Seat:")
+        end_seat_input = QLineEdit()
+        seat_layout.addWidget(end_seat_label)
+        seat_layout.addWidget(end_seat_input)
+        
+        seat_group.setLayout(seat_layout)
+        layout.addWidget(seat_group)
+        
+        # Row prefix/suffix section
+        prefix_suffix_group = QGroupBox("Row Prefix/Suffix")
+        prefix_suffix_layout = QVBoxLayout()
+        
+        prefix_label = QLabel("Prefix:")
+        prefix_input = QLineEdit()
+        prefix_suffix_layout.addWidget(prefix_label)
+        prefix_suffix_layout.addWidget(prefix_input)
+        
+        suffix_label = QLabel("Suffix:")
+        suffix_input = QLineEdit()
+        prefix_suffix_layout.addWidget(suffix_label)
+        prefix_suffix_layout.addWidget(suffix_input)
+        
+        prefix_suffix_group.setLayout(prefix_suffix_layout)
+        layout.addWidget(prefix_suffix_group)
+        
+        # Options section
+        options_group = QGroupBox("Options")
+        options_layout = QVBoxLayout()
+        
+        parity_label = QLabel("Seat Filter:")
+        parity_combo = QComboBox()
+        parity_combo.addItems(["All", "Even", "Odd"])
+        options_layout.addWidget(parity_label)
+        options_layout.addWidget(parity_combo)
+        
+        continuous_checkbox = QCheckBox("Continuous Numbering")
+        continuous_checkbox.setToolTip("Number seats sequentially across all rows.")
+        options_layout.addWidget(continuous_checkbox)
+        
+        options_group.setLayout(options_layout)
+        layout.addWidget(options_group)
+        
+        # Buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        
+        # Get input values
+        rows_text_value = rows_input.toPlainText().strip()
+        start_seat = start_seat_input.text().strip()
+        end_seat = end_seat_input.text().strip()
+        prefix = prefix_input.text() or ""
+        suffix = suffix_input.text() or ""
+        parity = parity_combo.currentText().lower()
+        continuous = continuous_checkbox.isChecked()
+        
+        if not rows_text_value or not start_seat or not end_seat:
+            QMessageBox.warning(self, "Missing Input", "Please fill in all fields.")
+            return
+        
+        # Parse rows from text (one per line, strip whitespace, apply prefix/suffix)
+        rows_raw = [line.strip() for line in rows_text_value.split('\n') if line.strip()]
+        rows = [f"{prefix}{r}{suffix}" for r in rows_raw]
+        
+        if not rows:
+            QMessageBox.warning(self, "No Rows", "No valid rows were entered.")
+            return
+        
+        # Get seat range
+        seats = alphanum_range(start_seat, end_seat)
+        if not seats:
+            # fallback to numeric if possible
+            try:
+                a = int(start_seat); b = int(end_seat)
+                if a > b:
+                    a, b = b, a
+                seats = [str(i) for i in range(a, b+1)]
+            except Exception:
+                QMessageBox.warning(self, "Invalid seats", "Could not interpret start/end seat range.")
+                return
+        
+        if not seats:
+            QMessageBox.warning(self, "No Seats", "Could not generate seat range.")
+            return
+        
+        # notify before bulk modification
+        self.aboutToModify.emit()
+        
+        # Add seats with options
+        if continuous:
+            # Continuous numbering logic only supported for numeric seat labels
+            try:
+                s0 = int(start_seat); s1 = int(end_seat)
+            except Exception:
+                QMessageBox.warning(self, "Continuous numbering",
+                                    "Continuous numbering is only supported for numeric seat labels. Falling back to per-row numbering.")
+                continuous = False
+        
+        if continuous:
+            # compute seats per row and sequential numbering across rows
+            if s0 <= s1:
+                seats_per_row = s1 - s0 + 1
+                seq = s0
+            else:
+                seats_per_row = s0 - s1 + 1
+                seq = s1
+            
+            for row in rows:
+                for i in range(seats_per_row):
+                    seat_label = str(seq)
+                    if parity == "all":
+                        self.section.add_seat(row, seat_label)
+                    else:
+                        val = int(seat_label)
+                        keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
+                        if keep:
+                            self.section.add_seat(row, seat_label)
+                    seq += 1
+        else:
+            # Standard behavior: apply same seat range for each row
+            if parity == "all":
+                for row in rows:
+                    for seat in seats:
+                        self.section.add_seat(row, seat)
+            else:
+                for row in rows:
+                    for seat in seats:
+                        if seat.isdigit():
+                            val = int(seat)
+                            keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
+                            if keep:
+                                self.section.add_seat(row, seat)
+                        else:
+                            # skip non-numeric for even/odd
+                            continue
+        
+        self.load_section(self.section)
+        self.sectionModified.emit()
+        QMessageBox.information(self, "Success", f"Added seats to {len(rows)} rows.")
 
     def delete_selected_seats(self):
         if not self.section:
