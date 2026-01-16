@@ -32,19 +32,22 @@ jobs:
           pyinstaller SeatingPlan.spec
 
       - name: Extract version from tag
+        shell: pwsh
         run: |
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          echo "VERSION=$($env:GITHUB_REF_NAME.TrimStart('v'))" >> $env:GITHUB_ENV
 
       - name: Rename build artifacts with version
+        shell: pwsh
         run: |
           cd dist
-          Rename-Item SeatingPlan SeatingPlan-%VERSION%
-          Rename-Item SeatingPlan-%VERSION%\SeatingPlan.exe SeatingPlan-%VERSION%\SeatingPlan-%VERSION%.exe
+          Rename-Item SeatingPlan "SeatingPlan-$env:VERSION"
+          Rename-Item "SeatingPlan-$env:VERSION\SeatingPlan.exe" "SeatingPlan-$env:VERSION\SeatingPlan-$env:VERSION.exe"
 
       - name: Zip distribution folder
+        shell: pwsh
         run: |
           cd dist
-          powershell Compress-Archive SeatingPlan-%VERSION% SeatingPlan-%VERSION%-Windows.zip
+          Compress-Archive "SeatingPlan-$env:VERSION" "SeatingPlan-$env:VERSION-Windows.zip"
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
