@@ -40,8 +40,8 @@ jobs:
         shell: pwsh
         run: |
           cd dist
-          Rename-Item SeatingPlan "SeatingPlan-$env:VERSION"
-          Rename-Item "SeatingPlan-$env:VERSION\SeatingPlan.exe" "SeatingPlan-$env:VERSION\SeatingPlan-$env:VERSION.exe"
+          Rename-Item SeatingPlan "SeatingPlan-${env:VERSION}"
+          Rename-Item "SeatingPlan-${env:VERSION}\SeatingPlan.exe" "SeatingPlan-${env:VERSION}\SeatingPlan-${env:VERSION}.exe"
 
       - name: Zip distribution folder
         shell: pwsh
