@@ -24,7 +24,6 @@ venv.bak/
 
 # PyInstaller
 *.manifest
-*.spec
 
 # Unit test / coverage
 .pytest_cache/
