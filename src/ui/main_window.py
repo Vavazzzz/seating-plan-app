@@ -44,6 +44,16 @@ class MainWindow(QMainWindow):
         self.section_table.setSelectionBehavior(self.section_table.SelectionBehavior.SelectRows)
         self.section_table.setEditTriggers(self.section_table.EditTrigger.NoEditTriggers)
 
+        # --- Total row (pinned at bottom) ---
+        self.section_total_table = QTableWidget(1, 2)
+        self.section_total_table.horizontalHeader().setVisible(False)
+        self.section_total_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.section_total_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.section_total_table.verticalHeader().setVisible(False)
+        self.section_total_table.setMaximumHeight(50)
+        self.section_total_table.setSelectionBehavior(self.section_total_table.SelectionBehavior.SelectRows)
+        self.section_total_table.setEditTriggers(self.section_total_table.EditTrigger.NoEditTriggers)
+
         # Add section button
         dock_widget_container = QWidget()
         dock_layout = QVBoxLayout()
@@ -51,6 +61,7 @@ class MainWindow(QMainWindow):
         self.add_section_btn.setToolTip("Add a new section (Ctrl+N creates a new project; add section here)")
         dock_layout.addWidget(self.add_section_btn)
         dock_layout.addWidget(self.section_table)
+        dock_layout.addWidget(self.section_total_table)
         dock_widget_container.setLayout(dock_layout)
 
         self.section_dock = QDockWidget("Sections", self)
@@ -237,13 +248,26 @@ class MainWindow(QMainWindow):
     def refresh_section_table(self):
         """Refresh section list with seat counts."""
         self.section_table.setRowCount(len(self.seating_plan.sections))
+        
+        total_seats = 0
         for row_idx, (name, section) in enumerate(self.seating_plan.sections.items()):
             name_item = QTableWidgetItem(name)
-            count_item = QTableWidgetItem(str(len(section.seats)))
+            seat_count = len(section.seats)
+            count_item = QTableWidgetItem(str(seat_count))
             count_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.section_table.setItem(row_idx, 0, name_item)
             self.section_table.setItem(row_idx, 1, count_item)
+            total_seats += seat_count
+        
+        # Update total row at the bottom
+        total_name_item = QTableWidgetItem("TOTAL")
+        total_count_item = QTableWidgetItem(str(total_seats))
+        total_count_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.section_total_table.setItem(0, 0, total_name_item)
+        self.section_total_table.setItem(0, 1, total_count_item)
+        
         self.section_table.resizeColumnsToContents()
+        self.section_total_table.resizeColumnsToContents()
 
     def new_project(self, name):
         # new project resets plan; push snapshot first
