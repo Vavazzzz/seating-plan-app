@@ -50,6 +50,7 @@ class SectionView(QWidget):
         self.section: Section | None = None
         self.scene = QGraphicsScene(self)
         self.view = ZoomableGraphicsView(self.scene, self)
+        self.is_collapsed = False  # State for collapse/expand
 
         # Controls
         self.btn_add_seat_range = QPushButton("\u2795 Add Seat Range")
@@ -64,6 +65,9 @@ class SectionView(QWidget):
         self.btn_delete_row.setToolTip("Delete selected rows (by selecting seats in those rows).")
         self.btn_renumber_rows = QPushButton("\U0001F503 Renumber Rows")
         self.btn_renumber_rows.setToolTip("Renumber rows sequentially (not implemented).")
+        self.btn_toggle_collapse = QPushButton("\U0001F4C9 Collapse Section")
+        self.btn_toggle_collapse.setToolTip("Collapse section (stack all seats on top of each other).")
+        self.btn_toggle_collapse.setCheckable(True)
 
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.btn_add_seat_range)
@@ -72,6 +76,7 @@ class SectionView(QWidget):
         controls_layout.addWidget(self.btn_delete_seat)
         controls_layout.addWidget(self.btn_delete_row)
         controls_layout.addWidget(self.btn_renumber_rows)
+        controls_layout.addWidget(self.btn_toggle_collapse)
         controls_layout.addStretch()
 
         # ---- Buttons shortcuts ----
@@ -119,6 +124,7 @@ class SectionView(QWidget):
         self.btn_delete_seat.clicked.connect(self.delete_selected_seats)
         self.btn_delete_row.clicked.connect(self.delete_selected_rows)
         self.btn_renumber_rows.clicked.connect(self.renumber_selected_rows)
+        self.btn_toggle_collapse.clicked.connect(self.toggle_collapse_section)
 
         # Context menu for move seats
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -168,20 +174,42 @@ class SectionView(QWidget):
             seats = {s.seat_number: s for s in seats_by_row[row]}
             row_label_sx = self.scene.addSimpleText(str(row))
             row_label_sx.setPos(-40, y)
-            row_label_dx = self.scene.addSimpleText(str(row))
-            row_label_dx.setPos(len(all_seat_numbers) * x_spacing + 10, y)
-
-            for idx, seat_num in enumerate(all_seat_numbers):
-                if seat_num in seats:
+            
+            if self.is_collapsed:
+                # Collapsed mode: each row starts at x=0, seats arranged by their order
+                row_label_dx = self.scene.addSimpleText(str(row))
+                sorted_seat_nums = sorted(seats.keys(), key=alphanum_sort_key)
+                row_label_dx.setPos(len(sorted_seat_nums) * x_spacing + 10, y)
+                
+                for idx, seat_num in enumerate(sorted_seat_nums):
                     seat = seats[seat_num]
                     x = idx * x_spacing
                     item = SeatItem(row, seat.seat_number)
                     item.setPos(x, y)
                     self.scene.addItem(item)
+            else:
+                # Normal mode: align all rows to the same grid
+                row_label_dx = self.scene.addSimpleText(str(row))
+                row_label_dx.setPos(len(all_seat_numbers) * x_spacing + 10, y)
+
+                for idx, seat_num in enumerate(all_seat_numbers):
+                    if seat_num in seats:
+                        seat = seats[seat_num]
+                        x = idx * x_spacing
+                        item = SeatItem(row, seat.seat_number)
+                        item.setPos(x, y)
+                        self.scene.addItem(item)
             y += y_spacing
 
         self.scene.setSceneRect(self.scene.itemsBoundingRect())
         self.position_zoom_overlay()
+
+    def toggle_collapse_section(self):
+        """Toggle between collapsed and normal view of the section."""
+        self.is_collapsed = not self.is_collapsed
+        self.btn_toggle_collapse.setChecked(self.is_collapsed)
+        if self.section:
+            self.load_section(self.section)
 
     # ---------- Context menu and move seats ----------
     def show_context_menu(self, pos):
