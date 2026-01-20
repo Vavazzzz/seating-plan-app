@@ -235,7 +235,7 @@ class SeatingPlan:
             for row_number, seat_list in rows.items():
                 try:
                     seat_list_sorted = sorted(seat_list, key=lambda x: int(x) if x.isdigit() else x)
-                except ValueError:
+                except:
                     seat_list_sorted = sorted(seat_list)
                 ws.append([
                     section.name,             # section
