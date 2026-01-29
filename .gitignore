@@ -1,53 +1,65 @@
-# Virtual Environments
-.venv/
-.venv-gui/
-.venv-api/
-env/
-venv/
-
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-dist/
-build/
-*.egg-info/
 
-# IDE
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv/
+.env/
+env.bak/
+venv.bak/
+.venv-api/
+.venv-gui/
+
+# PyInstaller
+*.manifest
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Flask / instance
+instance/
+.webassets-cache
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite3
+db.sqlite3
+db.sqlite3-journal
+
+# IDEs and editors
 .vscode/
 .idea/
-*.swp
+*.sublime-project
+*.sublime-workspace
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# OS
+# OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Build artifacts
-dist/
-build/
-seating-plan-app.spec
-*.zip
-*.exe
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-*.log
-logs/
-
-# Frontend
-frontend/node_modules/
-frontend/dist/
-
-# Docker
-.dockerignore
+# Misc
+*.bak
+*.swp
+*.swo
+.ipynb_checkpoints/
+*.json
+*.seatproj
+to_do.txt
