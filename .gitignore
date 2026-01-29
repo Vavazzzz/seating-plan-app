@@ -21,6 +21,8 @@ ENV/
 .env/
 env.bak/
 venv.bak/
+.venv-api/
+.venv-gui/
 
 # PyInstaller
 *.manifest
