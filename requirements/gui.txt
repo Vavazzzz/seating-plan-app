@@ -1,0 +1,9 @@
+# GUI-specific dependencies
+-r base.txt
+PyQt6==6.10.0
+PyQt6-Qt6==6.10.0
+PyQt6_sip==13.10.2
+pyinstaller==6.11.1
+pyinstaller-hooks-contrib==2025.10
+pywin32-ctypes==0.2.3
+setuptools==80.9.0
