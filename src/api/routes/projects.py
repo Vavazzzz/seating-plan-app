@@ -22,10 +22,20 @@ def get_project_path(name: str) -> str:
     return os.path.join(PROJECTS_DIR, f"{name}.json")
 
 
+@router.post("/new/{name}")
+def new_project(name: str, plan: SeatingPlan = Depends(get_plan)):
+    """Create a new empty seating plan project (clears current plan)."""
+    # Reset in-memory plan and set its name
+    plan.name = name
+    plan.sections = {}
+    return {"status": "new", "name": name, "seating_plan": plan.to_dict()}
+
 @router.post("/save")
 def save_project(payload: ProjectName, plan: SeatingPlan = Depends(get_plan)):
     """Save the current seating plan to a JSON file."""
     try:
+        # Ensure the seating plan's internal name is set before export
+        plan.name = payload.name
         plan.export_project(get_project_path(payload.name))
         return {"status": "saved", "name": payload.name}
     except Exception as e:
