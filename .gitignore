@@ -24,6 +24,11 @@ venv.bak/
 .venv-api/
 .venv-gui/
 
+# Environment variables
+.env
+.env.development
+.env.production
+
 # PyInstaller
 *.manifest
 
