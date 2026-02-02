@@ -15,7 +15,7 @@ class RowOut(BaseModel):
 
 class SectionCreate(BaseModel):
 	name: str
-	is_ga: Optional[bool] = False
+	is_ga: bool = False
 
 class SectionOut(BaseModel):
 	name: str
@@ -28,6 +28,18 @@ class CloneResponse(BaseModel):
 class SeatRange(BaseModel):
 	start_seat: str
 	end_seat: str
+
+
+class RowRange(BaseModel):
+	start_row: str
+	end_row: str
+	start_seat: str
+	end_seat: str
+	parity: Optional[str] = "all"  # "all", "even", "odd"
+	continuous: Optional[bool] = False
+	row_prefix: Optional[str] = ""
+	row_suffix: Optional[str] = ""
+	unnumbered_rows: Optional[bool] = False
 
 
 class BulkSeats(BaseModel):

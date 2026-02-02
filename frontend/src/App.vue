@@ -19,7 +19,7 @@
           <SectionManager :key="currentProjectName" />
         </aside>
         <section class="editor">
-          <SeatManager :key="currentProjectName" />
+          <SeatManagerGrid :key="currentProjectName" />
         </section>
       </div>
     </main>
@@ -30,14 +30,14 @@
 import { ref } from 'vue'
 import ProjectManager from './components/ProjectManager.vue'
 import SectionManager from './components/SectionManager.vue'
-import SeatManager from './components/SeatManager.vue'
+import SeatManagerGrid from './components/SeatManagerGrid.vue'
 
 export default {
   name: 'App',
   components: {
     ProjectManager,
     SectionManager,
-    SeatManager,
+    SeatManagerGrid,
   },
   setup() {
     const currentProjectName = ref('')
