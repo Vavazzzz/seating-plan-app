@@ -68,3 +68,4 @@ desktop.ini
 *.json
 *.seatproj
 to_do.txt
+node_modules/

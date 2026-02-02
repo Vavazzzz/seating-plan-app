@@ -7,33 +7,21 @@
       </div>
     </header>
 
-    <nav class="nav">
-      <button
-        v-for="tab in tabs"
-        :key="tab"
-        :class="['nav-btn', { active: activeTab === tab }]"
-        @click="activeTab = tab"
-      >
-        {{ tab }}
-      </button>
-    </nav>
-
     <main class="container">
       <ProjectManager
-        v-show="activeTab === 'Projects'"
+        v-if="!currentProjectName"
         @project-created="onProjectCreated"
         @project-loaded="onProjectLoaded"
       />
 
-      <SectionManager
-        v-show="activeTab === 'Sections'"
-        :key="currentProjectName"
-      />
-
-      <SeatManager
-        v-show="activeTab === 'Seats'"
-        :key="currentProjectName"
-      />
+      <div v-else class="section-flow">
+        <aside class="sidebar">
+          <SectionManager :key="currentProjectName" />
+        </aside>
+        <section class="editor">
+          <SeatManager :key="currentProjectName" />
+        </section>
+      </div>
     </main>
   </div>
 </template>
@@ -52,24 +40,21 @@ export default {
     SeatManager,
   },
   setup() {
-    const activeTab = ref('Projects')
     const currentProjectName = ref('')
-    const tabs = ['Projects', 'Sections', 'Seats']
 
     const onProjectCreated = (name) => {
       currentProjectName.value = name
-      activeTab.value = 'Sections'
+      // navigate to section/seat editor flow
     }
 
     const onProjectLoaded = (name) => {
       currentProjectName.value = name
-      activeTab.value = 'Sections'
+      // navigate to section/seat editor flow
     }
 
     return {
-      activeTab,
       currentProjectName,
-      tabs,
+      
       onProjectCreated,
       onProjectLoaded,
     }
@@ -145,5 +130,18 @@ export default {
   max-width: 1200px;
   margin: 2rem auto;
   padding: 0 2rem;
+}
+
+.section-flow {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.sidebar {
+  flex: 1 1 360px;
+}
+
+.editor {
+  flex: 2 1 720px;
 }
 </style>
