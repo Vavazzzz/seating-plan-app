@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.models.seating_plan import SeatingPlan
-from .routes import sections, seats, projects
+from .routes import seatingplans, sections, seats
 from .dependencies import init_plan
 
 app = FastAPI(title="Seating Plan API")
@@ -25,7 +25,7 @@ init_plan(seating_plan)
 
 app.include_router(sections.router, prefix="/api/sections", tags=["sections"], dependencies=[],)
 app.include_router(seats.router, prefix="/api/seats", tags=["seats"], dependencies=[],)
-app.include_router(projects.router, prefix="/api/projects", tags=["projects"], dependencies=[],)
+app.include_router(seatingplans.router, prefix="/api/seatingplans", tags=["seatingplans"], dependencies=[],)
 
 
 @app.get("/", tags=["root"])

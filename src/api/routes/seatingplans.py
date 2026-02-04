@@ -66,6 +66,20 @@ def list_projects():
     return {"projects": projects}
 
 
+@router.get("/seatingplan/{name}")
+def show_seating_plan(name: str):
+    """Get the seating plan data for a saved project."""
+    path = get_project_path(name)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail=f"Project '{name}' not found")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = f.read()
+        return {"name": name, "seating_plan": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/{name}")
 def delete_project(name: str):
     """Delete a saved project."""
