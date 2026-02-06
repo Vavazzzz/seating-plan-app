@@ -1,0 +1,70 @@
+name: Develop Build & Pre-release
+
+on:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller SeatingPlan.spec
+
+      - name: Generate version tag
+        id: generate_tag
+        shell: pwsh
+        run: |
+          $date = Get-Date -Format "yyyyMMdd"
+          $shortSha = "${{ github.sha }}".Substring(0, 7)
+          $devVersion = "dev-$date-$shortSha"
+          echo "DEV_VERSION=$devVersion" >> $env:GITHUB_ENV
+          echo "RELEASE_TAG=develop-$devVersion" >> $env:GITHUB_ENV
+          echo "RELEASE_TAG=develop-$devVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Rename build artifacts
+        shell: pwsh
+        run: |
+          cd dist
+          Rename-Item SeatingPlan "SeatingPlan-$env:DEV_VERSION"
+          cd "SeatingPlan-$env:DEV_VERSION"
+          Rename-Item SeatingPlan.exe "SeatingPlan-$env:DEV_VERSION.exe"
+
+      - name: Zip distribution folder
+        shell: pwsh
+        run: |
+          cd dist
+          Compress-Archive "SeatingPlan-$env:DEV_VERSION" "SeatingPlan-$env:DEV_VERSION-Windows.zip"
+
+      - name: Create Pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/SeatingPlan-*-Windows.zip
+          tag_name: ${{ steps.generate_tag.outputs.RELEASE_TAG }}
+          prerelease: true
+          body: |
+            **Development Build** - Not for production use
+            
+            Built from develop branch commit: `${{ github.sha }}`
+            
+            This is a pre-release build for testing purposes. Use with caution.
