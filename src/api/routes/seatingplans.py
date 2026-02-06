@@ -22,6 +22,30 @@ def get_project_path(name: str) -> str:
     return os.path.join(PROJECTS_DIR, f"{name}.json")
 
 
+@router.get("/list")
+def list_projects():
+    """List all saved projects."""
+    ensure_projects_dir()
+    projects = []
+    for filename in os.listdir(PROJECTS_DIR):
+        if filename.endswith(".json"):
+            projects.append(filename[:-5])  # Remove .json extension
+    return {"projects": projects}
+
+
+@router.get("/seatingplan/{name}")
+def show_seating_plan(name: str):
+    """Get the seating plan data for a saved project."""
+    path = get_project_path(name)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail=f"Project '{name}' not found")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = f.read()
+        return {"name": name, "seating_plan": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/new/{name}")
 def new_project(name: str, plan: SeatingPlan = Depends(get_plan)):
     """Create a new empty seating plan project (clears current plan)."""
@@ -51,31 +75,6 @@ def load_project(payload: ProjectName, plan: SeatingPlan = Depends(get_plan)):
     try:
         plan.import_project(path)
         return {"status": "loaded", "name": payload.name}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/list")
-def list_projects():
-    """List all saved projects."""
-    ensure_projects_dir()
-    projects = []
-    for filename in os.listdir(PROJECTS_DIR):
-        if filename.endswith(".json"):
-            projects.append(filename[:-5])  # Remove .json extension
-    return {"projects": projects}
-
-
-@router.get("/seatingplan/{name}")
-def show_seating_plan(name: str):
-    """Get the seating plan data for a saved project."""
-    path = get_project_path(name)
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail=f"Project '{name}' not found")
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = f.read()
-        return {"name": name, "seating_plan": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

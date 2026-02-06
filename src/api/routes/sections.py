@@ -16,6 +16,13 @@ def list_sections(plan: SeatingPlan = Depends(get_plan)):
 	return [section.to_dict() for section in plan.sections.values()]
 
 
+@router.get("/{section}", response_model=SectionOut)
+def get_section(section: str, plan: SeatingPlan = Depends(get_plan)):
+	if section not in plan.sections:
+		raise HTTPException(status_code=404, detail="Section not found")
+	return plan.sections[section].to_dict()
+
+
 @router.post("/", response_model=SectionOut, status_code=201)
 def create_section(payload: SectionCreate, plan: SeatingPlan = Depends(get_plan)):
 	if payload.name in plan.sections:
@@ -24,30 +31,10 @@ def create_section(payload: SectionCreate, plan: SeatingPlan = Depends(get_plan)
 	return plan.sections[payload.name].to_dict()
 
 
-@router.get("/{section}", response_model=SectionOut)
-def get_section(section: str, plan: SeatingPlan = Depends(get_plan)):
-	if section not in plan.sections:
-		raise HTTPException(status_code=404, detail="Section not found")
-	return plan.sections[section].to_dict()
-
-
-@router.delete("/{section}", status_code=204)
-def delete_section(section: str, plan: SeatingPlan = Depends(get_plan)):
-	plan.delete_section(section)
-	return {}
-
-
 @router.post("/{section}/clone", response_model=CloneResponse)
 def clone_section(section: str, count: int = 1, plan: SeatingPlan = Depends(get_plan)):
 	created = plan.clone_section_many(section, count)
 	return {"created": created}
-
-@router.patch("/{section}", response_model=SectionOut)
-def rename_section(section: str, payload: RenameSection, plan: SeatingPlan = Depends(get_plan)):
-    if section not in plan.sections:
-        raise HTTPException(status_code=404, detail="Section not found")
-    plan.rename_section(section, payload.new_name)
-    return plan.sections[payload.new_name].to_dict()
 
 
 @router.post("/{section}/rows/{row}/bulk", status_code=201)
@@ -167,6 +154,20 @@ def add_row_range(section: str, payload: RowRange, plan: SeatingPlan = Depends(g
                             section_obj.add_seat(row, seat)
     
     return {"status": "ok", "rows_added": len(rows)}
+
+
+@router.patch("/{section}", response_model=SectionOut)
+def rename_section(section: str, payload: RenameSection, plan: SeatingPlan = Depends(get_plan)):
+    if section not in plan.sections:
+        raise HTTPException(status_code=404, detail="Section not found")
+    plan.rename_section(section, payload.new_name)
+    return plan.sections[payload.new_name].to_dict()
+
+
+@router.delete("/{section}", status_code=204)
+def delete_section(section: str, plan: SeatingPlan = Depends(get_plan)):
+	plan.delete_section(section)
+	return {}
 
 
 @router.delete("/{section}/rows/{row}", status_code=204)
