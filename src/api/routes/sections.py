@@ -24,51 +24,51 @@ def create_section(payload: SectionCreate, plan: SeatingPlan = Depends(get_plan)
 	return plan.sections[payload.name].to_dict()
 
 
-@router.get("/{name}", response_model=SectionOut)
-def get_section(name: str, plan: SeatingPlan = Depends(get_plan)):
-	if name not in plan.sections:
+@router.get("/{section}", response_model=SectionOut)
+def get_section(section: str, plan: SeatingPlan = Depends(get_plan)):
+	if section not in plan.sections:
 		raise HTTPException(status_code=404, detail="Section not found")
-	return plan.sections[name].to_dict()
+	return plan.sections[section].to_dict()
 
 
-@router.delete("/{name}", status_code=204)
-def delete_section(name: str, plan: SeatingPlan = Depends(get_plan)):
-	plan.delete_section(name)
+@router.delete("/{section}", status_code=204)
+def delete_section(section: str, plan: SeatingPlan = Depends(get_plan)):
+	plan.delete_section(section)
 	return {}
 
 
-@router.post("/{name}/clone", response_model=CloneResponse)
-def clone_section(name: str, count: int = 1, plan: SeatingPlan = Depends(get_plan)):
-	created = plan.clone_section_many(name, count)
+@router.post("/{section}/clone", response_model=CloneResponse)
+def clone_section(section: str, count: int = 1, plan: SeatingPlan = Depends(get_plan)):
+	created = plan.clone_section_many(section, count)
 	return {"created": created}
 
-@router.patch("/{name}", response_model=SectionOut)
-def rename_section(name: str, payload: RenameSection, plan: SeatingPlan = Depends(get_plan)):
-    if name not in plan.sections:
+@router.patch("/{section}", response_model=SectionOut)
+def rename_section(section: str, payload: RenameSection, plan: SeatingPlan = Depends(get_plan)):
+    if section not in plan.sections:
         raise HTTPException(status_code=404, detail="Section not found")
-    plan.rename_section(name, payload.new_name)
+    plan.rename_section(section, payload.new_name)
     return plan.sections[payload.new_name].to_dict()
 
 
-@router.post("/{name}/rows/{row}/bulk", status_code=201)
-def add_bulk_seats(name: str, row: str, payload: BulkSeats, plan: SeatingPlan = Depends(get_plan)):
-    if name not in plan.sections:
+@router.post("/{section}/rows/{row}/bulk", status_code=201)
+def add_bulk_seats(section: str, row: str, payload: BulkSeats, plan: SeatingPlan = Depends(get_plan)):
+    if section not in plan.sections:
         raise HTTPException(status_code=404, detail="Section not found")
     for seat_number in payload.seat_numbers:
-        plan.sections[name].add_seat(row, seat_number)
+        plan.sections[section].add_seat(row, seat_number)
     return {"status": "ok", "count": len(payload.seat_numbers)}
 
 
-@router.post("/{name}/rows/{row}/range", status_code=201)
-def add_seat_range(name: str, row: str, payload: SeatRange, plan: SeatingPlan = Depends(get_plan)):
-    if name not in plan.sections:
+@router.post("/{section}/rows/{row}/range", status_code=201)
+def add_seat_range(section: str, row: str, payload: SeatRange, plan: SeatingPlan = Depends(get_plan)):
+    if section not in plan.sections:
         raise HTTPException(status_code=404, detail="Section not found")
-    plan.sections[name].add_seat_range(row, payload.start_seat, payload.end_seat)
+    plan.sections[section].add_seat_range(row, payload.start_seat, payload.end_seat)
     return {"status": "ok"}
 
 
-@router.post("/{name}/rows/range", status_code=201)
-def add_row_range(name: str, payload: RowRange, plan: SeatingPlan = Depends(get_plan)):
+@router.post("/{section}/rows/range", status_code=201)
+def add_row_range(section: str, payload: RowRange, plan: SeatingPlan = Depends(get_plan)):
     """
     Add multiple rows with seat ranges. Supports:
     - start_row, end_row: row range (numeric or letter)
@@ -78,10 +78,10 @@ def add_row_range(name: str, payload: RowRange, plan: SeatingPlan = Depends(get_
     - row_prefix, row_suffix: applied to row labels
     - unnumbered_rows: if True, add '#' prefix to row numbers
     """
-    if name not in plan.sections:
+    if section not in plan.sections:
         raise HTTPException(status_code=404, detail="Section not found")
     
-    section = plan.sections[name]
+    section_obj = plan.sections[section]
     
     # Build rows list (numeric or letter ranges)
     rows_raw = []
@@ -131,12 +131,12 @@ def add_row_range(name: str, payload: RowRange, plan: SeatingPlan = Depends(get_
                 for i in range(seats_per_row):
                     seat_label = str(seq)
                     if parity == "all":
-                        section.add_seat(row, seat_label)
+                        section_obj.add_seat(row, seat_label)
                     else:
                         val = int(seat_label)
                         keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
                         if keep:
-                            section.add_seat(row, seat_label)
+                            section_obj.add_seat(row, seat_label)
                     seq += 1
         except ValueError:
             raise HTTPException(status_code=400, detail="Continuous numbering requires numeric seat labels")
@@ -156,7 +156,7 @@ def add_row_range(name: str, payload: RowRange, plan: SeatingPlan = Depends(get_
         if parity == "all":
             for row in rows:
                 for seat in seats:
-                    section.add_seat(row, seat)
+                    section_obj.add_seat(row, seat)
         else:
             for row in rows:
                 for seat in seats:
@@ -164,14 +164,14 @@ def add_row_range(name: str, payload: RowRange, plan: SeatingPlan = Depends(get_
                         val = int(seat)
                         keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
                         if keep:
-                            section.add_seat(row, seat)
+                            section_obj.add_seat(row, seat)
     
     return {"status": "ok", "rows_added": len(rows)}
 
 
-@router.delete("/{name}/rows/{row}", status_code=204)
-def delete_row(name: str, row: str, plan: SeatingPlan = Depends(get_plan)):
-    if name not in plan.sections:
+@router.delete("/{section}/rows/{row}", status_code=204)
+def delete_row(section: str, row: str, plan: SeatingPlan = Depends(get_plan)):
+    if section not in plan.sections:
         raise HTTPException(status_code=404, detail="Section not found")
-    plan.sections[name].delete_row(row)
+    plan.sections[section].delete_row(row)
     return {}
