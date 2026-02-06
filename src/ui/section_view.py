@@ -373,12 +373,7 @@ class SectionView(QWidget):
         except ValueError:
             # letter range
             try:
-                si = ascii_uppercase.index(start_row.upper())
-                ei = ascii_uppercase.index(end_row.upper())
-                if si <= ei:
-                    rows_raw = list(ascii_uppercase[si:ei+1])
-                else:
-                    rows_raw = list(ascii_uppercase[ei:si+1])
+                rows_raw = alphanum_range(start_row, end_row)
             except Exception:
                 QMessageBox.warning(self, "Invalid rows", "Could not interpret start/end row range.")
                 return
