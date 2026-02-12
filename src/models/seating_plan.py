@@ -5,6 +5,9 @@ from openpyxl import Workbook
 from typing import Dict, List
 from .section import Section
 
+class MergeConflictError(Exception):
+    """Raised when attempting to merge sections that contain conflicting seats."""
+
 class SeatingPlan:
     """Represents an entire seating plan project with multiple sections."""
 
@@ -75,6 +78,53 @@ class SeatingPlan:
             current += 1
 
         return created
+
+    def merge_sections(self, source_section_names: List[str], new_section_name: str) -> None:
+        """Create a new section containing all seats from the listed source sections.
+
+        Conflicts (same row+seat present in more than one source) will abort the
+        operation and raise MergeConflictError. The source sections are left
+        unchanged.
+
+        Args:
+            source_section_names: list of existing section names to merge (>=2)
+            new_section_name: name for the newly created section (must not exist)
+        """
+        # Validate input
+        if not source_section_names or len(source_section_names) < 2:
+            raise ValueError("Provide at least two source sections to merge")
+        if new_section_name in self.sections:
+            raise ValueError(f"Target section '{new_section_name}' already exists")
+
+        # Collect source Section objects and validate existence
+        sources: List[Section] = []
+        for sname in source_section_names:
+            if sname not in self.sections:
+                raise KeyError(f"Source section '{sname}' does not exist")
+            sources.append(self.sections[sname])
+
+        # Build staging map and detect conflicts: seat_key -> list of source names
+        seat_origins: Dict[str, List[str]] = {}
+        for sec in sources:
+            for key in sec.seats.keys():
+                seat_origins.setdefault(key, []).append(sec.name)
+
+        # Any seat key that appears more than once is a conflict
+        conflicts = {k: v for k, v in seat_origins.items() if len(v) > 1}
+        if conflicts:
+            # Format a helpful message listing conflicting seat keys and origins
+            msgs = [f"{k}: {','.join(v)}" for k, v in conflicts.items()]
+            raise MergeConflictError("Conflicting seats detected: " + "; ".join(msgs))
+
+        # No conflicts: create the new section and copy seats
+        new_is_ga = all(sec.is_ga for sec in sources)
+        new_section = Section(new_section_name, is_ga=new_is_ga)
+        for sec in sources:
+            for seat in sec.seats.values():
+                new_section.add_seat(seat.row_number, seat.seat_number)
+
+        # Register new section
+        self.sections[new_section_name] = new_section
 
     # ---- Serialization ----
     def to_dict(self) -> dict:

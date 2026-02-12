@@ -7,9 +7,9 @@ from PyQt6.QtWidgets import (
     QPushButton, QHeaderView, QStatusBar, QLabel, QCheckBox,
     QDialog, QLineEdit, QDialogButtonBox
 )
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QColor, QBrush
 from PyQt6.QtCore import Qt
-from ..models.seating_plan import SeatingPlan
+from ..models.seating_plan import SeatingPlan, MergeConflictError
 from ..utils.json_io import import_project_dialog, import_from_excel_dialog, import_from_avail_dialog, export_project_dialog, export_to_excel_dialog
 from .section_view import SectionView
 
@@ -42,6 +42,13 @@ class MainWindow(QMainWindow):
         self.section_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.section_table.verticalHeader().setVisible(False)
         self.section_table.setSelectionBehavior(self.section_table.SelectionBehavior.SelectRows)
+        # Allow selecting multiple sections for operations like merge
+        try:
+            self.section_table.setSelectionMode(self.section_table.SelectionMode.MultiSelection)
+        except Exception:
+            # fallback in case different PyQt enums are present
+            from PyQt6.QtWidgets import QAbstractItemView
+            self.section_table.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.section_table.setEditTriggers(self.section_table.EditTrigger.NoEditTriggers)
 
         # --- Total row (pinned at bottom) ---
@@ -156,6 +163,11 @@ class MainWindow(QMainWindow):
         rename_section_action.triggered.connect(self.rename_section_dialog)
         edit_menu.addAction(rename_section_action)
 
+        merge_sections_action = QAction("Merge Sections...", self)
+        merge_sections_action.setToolTip("Merge selected sections into a new section")
+        merge_sections_action.triggered.connect(self.merge_sections_dialog)
+        edit_menu.addAction(merge_sections_action)
+
         # Undo / Redo actions
         undo_action = QAction("Undo", self)
         undo_action.setShortcut("Ctrl+Z")
@@ -186,6 +198,12 @@ class MainWindow(QMainWindow):
     def _connect_signals(self):
         self.add_section_btn.clicked.connect(self.add_section_dialog)
         self.section_table.cellClicked.connect(self.on_section_selected)
+        # keep track of selection changes to highlight rows and persist across refreshes
+        try:
+            self.section_table.selectionModel().selectionChanged.connect(self.on_sections_selection_changed)
+        except Exception:
+            # in some test contexts selectionModel may be None; guard defensively
+            pass
         self.section_dock.visibilityChanged.connect(lambda visible: self.toggle_sections_action.setChecked(visible))
 
     # ---------- Undo/Redo handling ----------
@@ -468,6 +486,44 @@ class MainWindow(QMainWindow):
         self.seating_plan.rename_section(old, new)
         self.refresh_section_table()
         self.status_label.setText(f"\u270f\ufe0f Renamed section '{old}' to '{new}'")
+
+    def merge_sections_dialog(self):
+        """Merge multiple selected sections into a new section."""
+        # collect selected section names
+        selected_indexes = self.section_table.selectionModel().selectedRows()
+        selected_names = []
+        for idx in selected_indexes:
+            item = self.section_table.item(idx.row(), 0)
+            if item:
+                selected_names.append(item.text())
+
+        if len(selected_names) < 2:
+            QMessageBox.warning(self, "Select sections", "Select two or more sections to merge.")
+            return
+
+        new_name, ok = QInputDialog.getText(self, "Merge Sections", "New section name:")
+        if not ok or not new_name:
+            return
+        if new_name in self.seating_plan.sections:
+            QMessageBox.warning(self, "Exists", "Section with that name already exists.")
+            return
+
+        # push undo snapshot before merging
+        self.push_undo_snapshot(f"Merge sections: {', '.join(selected_names)} -> {new_name}")
+
+        try:
+            self.seating_plan.merge_sections(selected_names, new_name)
+        except MergeConflictError as e:
+            QMessageBox.warning(self, "Merge conflict", str(e))
+            return
+        except Exception as e:
+            QMessageBox.warning(self, "Merge failed", str(e))
+            return
+
+        # success: refresh and load merged section
+        self.refresh_section_table()
+        self.section_view.load_section(self.seating_plan.sections.get(new_name))
+        self.status_label.setText(f"Merged sections into '{new_name}'")
 
     def toggle_sections_panel(self, checked):
         self.section_dock.setVisible(checked)
