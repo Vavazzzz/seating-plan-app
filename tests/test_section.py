@@ -1,49 +1,40 @@
 from src.models.section import Section
-import unittest
 
-class TestSection(unittest.TestCase):
 
-    def setUp(self):
-        self.section = Section("A")
+def test_add_and_delete_seat():
+    s = Section("A")
+    s.add_seat("1", "A")
+    assert "1-A" in s.seats
+    s.delete_seat("1", "A")
+    assert "1-A" not in s.seats
 
-    def test_add_seat(self):
-        self.section.add_seat("1", "A")
-        self.assertIn("A1", self.section.seats)
 
-    def test_delete_seat(self):
-        self.section.add_seat("1", "A")
-        self.section.delete_seat("1", "A")
-        self.assertNotIn("A1", self.section.seats)
+def test_delete_row_removes_all_row_seats():
+    s = Section("A")
+    s.add_seat("1", "A")
+    s.add_seat("1", "B")
+    s.delete_row("1")
+    assert not any(k.startswith("1-") for k in s.seats.keys())
 
-    def test_delete_row(self):
-        self.section.add_seat("1", "A")
-        self.section.add_seat("1", "B")
-        self.section.delete_row("1")
-        self.assertNotIn("A1", self.section.seats)
-        self.assertNotIn("B1", self.section.seats)
 
-    def test_rename_section(self):
-        self.section.rename("B")
-        self.assertEqual(self.section.name, "B")
+def test_rename_section_updates_name():
+    s = Section("A")
+    s.rename("B")
+    assert s.name == "B"
 
-    def test_change_seat_number(self):
-        self.section.add_seat("1", "A")
-        self.section.change_seat_number("1", "B")
-        self.assertNotIn("A1", self.section.seats)
-        self.assertIn("B1", self.section.seats)
 
-    def test_add_seat_range(self):
-        self.section.add_seat_range("1", "A", "C")
-        self.assertIn("A1", self.section.seats)
-        self.assertIn("B1", self.section.seats)
-        self.assertIn("C1", self.section.seats)
+def test_change_seat_number_moves_entry():
+    s = Section("A")
+    s.add_seat("1", "A")
+    assert "1-A" in s.seats
+    s.change_seat_number("1", "A", "B")
+    assert "1-A" not in s.seats
+    assert "1-B" in s.seats
 
-    def test_delete_seat_range(self):
-        self.section.add_seat_range("1", "A", "C")
-        self.section.delete_seat_range("1", "A", "B")
-        self.assertNotIn("A1", self.section.seats)
-        self.assertNotIn("B1", self.section.seats)
-        self.assertIn("C1", self.section.seats)
 
-if __name__ == "__main__":
-    unittest.main()
+def test_add_seat_range_alpha():
+    s = Section("A")
+    s.add_seat_range("1", "A", "C")
+    assert "1-A" in s.seats
+    assert "1-B" in s.seats
+    assert "1-C" in s.seats

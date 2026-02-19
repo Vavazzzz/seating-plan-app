@@ -1,52 +1,74 @@
-from src.models.seating_plan import SeatingPlan
-from src.models.section import Section
-from src.models.seat import Seat
-import unittest
+from src.models.seating_plan import SeatingPlan, MergeConflictError
 
-class TestSeatingPlan(unittest.TestCase):
 
-    def setUp(self):
-        self.seating_plan = SeatingPlan()
+def test_add_and_delete_section():
+    sp = SeatingPlan("Test")
+    sp.add_section("A")
+    assert "A" in sp.sections
+    sp.delete_section("A")
+    assert "A" not in sp.sections
 
-    def test_add_section(self):
-        self.seating_plan.add_section("A")
-        self.assertIn("A", self.seating_plan.sections)
 
-    def test_delete_section(self):
-        self.seating_plan.add_section("A")
-        self.seating_plan.delete_section("A")
-        self.assertNotIn("A", self.seating_plan.sections)
+def test_add_seat_to_section():
+    sp = SeatingPlan()
+    sp.add_section("A")
+    sec = sp.sections["A"]
+    sec.add_seat("1", "A")
+    assert "1-A" in sec.seats
 
-    def test_add_seat_to_section(self):
-        self.seating_plan.add_section("A")
-        section = self.seating_plan.sections["A"]
-        section.add_seat("1", "1")
-        self.assertIn(("1", "1"), section.seats)
 
-    def test_delete_seat_from_section(self):
-        self.seating_plan.add_section("A")
-        section = self.seating_plan.sections["A"]
-        section.add_seat("1", "1")
-        section.delete_seat("1", "1")
-        self.assertNotIn(("1", "1"), section.seats)
+def test_to_dict_and_from_dict_roundtrip():
+    sp = SeatingPlan("Roundtrip")
+    sp.add_section("A")
+    sp.sections["A"].add_seat("1", "A")
+    data = sp.to_dict()
+    new = SeatingPlan()
+    new.from_dict(data)
+    assert "A" in new.sections
+    assert "1-A" in new.sections["A"].seats
 
-    def test_export_to_json(self):
-        self.seating_plan.add_section("A")
-        section = self.seating_plan.sections["A"]
-        section.add_seat("1", "1")
-        json_data = self.seating_plan.to_dict()
-        self.assertIsInstance(json_data, dict)
 
-    def test_import_from_json(self):
-        self.seating_plan.add_section("A")
-        section = self.seating_plan.sections["A"]
-        section.add_seat("1", "1")
-        json_data = self.seating_plan.to_dict()
-        
-        new_seating_plan = SeatingPlan()
-        new_seating_plan.from_dict(json_data)
-        self.assertIn("A", new_seating_plan.sections)
-        self.assertIn(("1", "1"), new_seating_plan.sections["A"].seats)
+def test_clone_section_and_independence():
+    sp = SeatingPlan()
+    sp.add_section("A")
+    sp.sections["A"].add_seat("1", "A")
+    sp.clone_section("A", "A copy")
+    assert "A copy" in sp.sections
+    # modify clone and ensure original unchanged
+    sp.sections["A copy"].add_seat("2", "B")
+    assert "2-B" in sp.sections["A copy"].seats
+    assert "2-B" not in sp.sections["A"].seats
 
-if __name__ == '__main__':
-    unittest.main()
+
+def test_clone_section_many_creates_requested_count():
+    sp = SeatingPlan()
+    sp.add_section("A")
+    created = sp.clone_section_many("A", 3)
+    assert len(created) == 3
+    for name in created:
+        assert name in sp.sections
+
+
+def test_merge_sections_combines_seats():
+    sp = SeatingPlan()
+    sp.add_section("S1")
+    sp.add_section("S2")
+    sp.sections["S1"].add_seat("1", "A")
+    sp.sections["S2"].add_seat("2", "B")
+    sp.merge_sections(["S1", "S2"], "Merged")
+    assert "Merged" in sp.sections
+    assert "1-A" in sp.sections["Merged"].seats
+    assert "2-B" in sp.sections["Merged"].seats
+
+
+def test_merge_sections_conflict_raises():
+    sp = SeatingPlan()
+    sp.add_section("S1")
+    sp.add_section("S2")
+    sp.sections["S1"].add_seat("1", "A")
+    sp.sections["S2"].add_seat("1", "A")
+    try:
+        sp.merge_sections(["S1", "S2"], "Merged")
+        assert False, "Expected MergeConflictError"
+    except MergeConflictError:
+        assert True
