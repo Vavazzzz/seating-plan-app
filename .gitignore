@@ -23,6 +23,7 @@ env.bak/
 venv.bak/
 .venv-api/
 .venv-gui/
+.venv-tests/
 
 # Environment files
 .env

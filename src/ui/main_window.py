@@ -36,10 +36,13 @@ class MainWindow(QMainWindow):
         self.section_view.aboutToModify.connect(self.push_undo_snapshot)
 
         # --- Dock: Sections table ---
-        self.section_table = QTableWidget(0, 2)
-        self.section_table.setHorizontalHeaderLabels(["Section", "Seats"])
-        self.section_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.section_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        # Now includes a checkbox column for multi-selection
+        self.section_table = QTableWidget(0, 3)
+        self.section_table.setHorizontalHeaderLabels(["Select", "Section", "Seats"])
+        # Resize: checkbox small, section stretch, seats fit contents
+        self.section_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.section_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.section_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.section_table.verticalHeader().setVisible(False)
         self.section_table.setSelectionBehavior(self.section_table.SelectionBehavior.SelectRows)
         # Allow selecting multiple sections for operations like merge
@@ -50,6 +53,11 @@ class MainWindow(QMainWindow):
             from PyQt6.QtWidgets import QAbstractItemView
             self.section_table.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.section_table.setEditTriggers(self.section_table.EditTrigger.NoEditTriggers)
+
+        # track checked state between refreshes: {section_name: bool}
+        self.section_checks: dict[str, bool] = {}
+        # used to suppress itemChanged handling during programmatic updates
+        self._suppress_section_table_signals = False
 
         # --- Total row (pinned at bottom) ---
         self.section_total_table = QTableWidget(1, 2)
@@ -198,11 +206,11 @@ class MainWindow(QMainWindow):
     def _connect_signals(self):
         self.add_section_btn.clicked.connect(self.add_section_dialog)
         self.section_table.cellClicked.connect(self.on_section_selected)
-        # keep track of selection changes to highlight rows and persist across refreshes
+        # keep track of checkbox changes to persist selections between refreshes
         try:
-            self.section_table.selectionModel().selectionChanged.connect(self.on_sections_selection_changed)
+            self.section_table.itemChanged.connect(self.on_section_checkbox_changed)
         except Exception:
-            # in some test contexts selectionModel may be None; guard defensively
+            # in some test contexts signals may not be available; guard defensively
             pass
         self.section_dock.visibilityChanged.connect(lambda visible: self.toggle_sections_action.setChecked(visible))
 
@@ -266,16 +274,36 @@ class MainWindow(QMainWindow):
     def refresh_section_table(self):
         """Refresh section list with seat counts."""
         self.section_table.setRowCount(len(self.seating_plan.sections))
-        
+
         total_seats = 0
-        for row_idx, (name, section) in enumerate(self.seating_plan.sections.items()):
-            name_item = QTableWidgetItem(name)
-            seat_count = len(section.seats)
-            count_item = QTableWidgetItem(str(seat_count))
-            count_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.section_table.setItem(row_idx, 0, name_item)
-            self.section_table.setItem(row_idx, 1, count_item)
-            total_seats += seat_count
+        # preserve previous check states for existing section names
+        prev_checks = dict(self.section_checks)
+        self.section_checks = {}
+
+        # prevent handling itemChanged while we populate rows
+        self._suppress_section_table_signals = True
+        try:
+            for row_idx, (name, section) in enumerate(self.seating_plan.sections.items()):
+                # checkbox item
+                check_item = QTableWidgetItem()
+                check_item.setFlags(check_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                checked = Qt.CheckState.Checked if prev_checks.get(name, False) else Qt.CheckState.Unchecked
+                check_item.setCheckState(checked)
+                # name and count items
+                name_item = QTableWidgetItem(name)
+                seat_count = len(section.seats)
+                count_item = QTableWidgetItem(str(seat_count))
+                count_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+                self.section_table.setItem(row_idx, 0, check_item)
+                self.section_table.setItem(row_idx, 1, name_item)
+                self.section_table.setItem(row_idx, 2, count_item)
+
+                # update bookkeeping
+                self.section_checks[name] = (checked == Qt.CheckState.Checked)
+                total_seats += seat_count
+        finally:
+            self._suppress_section_table_signals = False
         
         # Update total row at the bottom
         total_name_item = QTableWidgetItem("TOTAL")
@@ -286,6 +314,31 @@ class MainWindow(QMainWindow):
         
         self.section_table.resizeColumnsToContents()
         self.section_total_table.resizeColumnsToContents()
+
+    def get_checked_section_names(self) -> list[str]:
+        """Return a list of section names currently checked in the table."""
+        return [name for name, checked in self.section_checks.items() if checked]
+
+    def on_section_checkbox_changed(self, item: QTableWidgetItem):
+        """Handle user toggling a checkbox in the first column."""
+        if self._suppress_section_table_signals:
+            return
+        try:
+            if item.column() != 0:
+                return
+        except Exception:
+            # some test contexts may not provide column
+            return
+        # get corresponding section name from same row
+        row = item.row()
+        name_item = self.section_table.item(row, 1)
+        if not name_item:
+            return
+        name = name_item.text()
+        self.section_checks[name] = (item.checkState() == Qt.CheckState.Checked)
+        # update status to show number of checked sections
+        checked_count = len(self.get_checked_section_names())
+        self.status_label.setText(f"Checked: {checked_count}")
 
     def new_project(self, name):
         # new project resets plan; push snapshot first
@@ -412,11 +465,19 @@ class MainWindow(QMainWindow):
         self.status_label.setText(f"Added section '{name}'")
 
     def clone_section_dialog(self):
-        row = self.section_table.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "No selection", "Select a section to clone.")
+        # prefer checkbox selection; fall back to current row
+        checked = self.get_checked_section_names()
+        if len(checked) == 1:
+            src_name = checked[0]
+        elif len(checked) > 1:
+            QMessageBox.warning(self, "Multiple selected", "Select only one section to clone.")
             return
-        src_name = self.section_table.item(row, 0).text()
+        else:
+            row = self.section_table.currentRow()
+            if row < 0:
+                QMessageBox.warning(self, "No selection", "Select a section to clone.")
+                return
+            src_name = self.section_table.item(row, 1).text()
         new_name, ok = QInputDialog.getText(self, "Clone section", "New section name:")
         if not ok or not new_name:
             return
@@ -433,11 +494,18 @@ class MainWindow(QMainWindow):
 
     def clone_section_many_dialog(self):
         """Clone the selected section multiple times with incrementing names."""
-        row = self.section_table.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "No selection", "Select a section to clone.")
+        checked = self.get_checked_section_names()
+        if len(checked) == 1:
+            src_name = checked[0]
+        elif len(checked) > 1:
+            QMessageBox.warning(self, "Multiple selected", "Select only one section to clone multiple times.")
             return
-        src_name = self.section_table.item(row, 0).text()
+        else:
+            row = self.section_table.currentRow()
+            if row < 0:
+                QMessageBox.warning(self, "No selection", "Select a section to clone.")
+                return
+            src_name = self.section_table.item(row, 1).text()
 
         num, ok = QInputDialog.getInt(self, "Clone section multiple", "Number of clones to create:", 1, 1, 500)
         if not ok or num <= 0:
@@ -454,25 +522,39 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"No clones created for '{src_name}'")
 
     def delete_section(self):
-        row = self.section_table.currentRow()
-        if row < 0:
+        # collect checked section names
+        names = self.get_checked_section_names()
+        if not names:
+            QMessageBox.warning(self, "No selection", "Check one or more sections to delete.")
             return
-        name = self.section_table.item(row, 0).text()
-        confirm = QMessageBox.question(self, "Delete", f"Delete section '{name}'?")
+        confirm = QMessageBox.question(self, "Delete", f"Delete selected sections: {', '.join(names)} ?")
         if confirm == QMessageBox.StandardButton.Yes:
             # snapshot before deletion
-            self.push_undo_snapshot(f"Delete section '{name}'")
-
-            self.seating_plan.delete_section(name)
+            self.push_undo_snapshot(f"Delete sections: {', '.join(names)}")
+            for name in names:
+                try:
+                    self.seating_plan.delete_section(name)
+                except Exception as e:
+                    QMessageBox.warning(self, "Delete failed", f"Could not delete '{name}': {e}")
             self.refresh_section_table()
-            self.section_view.load_section(None)
-            self.status_label.setText(f"\ud83d\uddd1 Deleted section '{name}'")
+            # if current view was one of deleted, clear
+            if self.section_view.section and self.section_view.section.name not in self.seating_plan.sections:
+                self.section_view.load_section(None)
+            self.status_label.setText(f"\ud83d\uddd1 Deleted sections: {', '.join(names)}")
 
     def rename_section_dialog(self):
-        row = self.section_table.currentRow()
-        if row < 0:
+        # prefer checkbox selection (exactly one); fall back to current row
+        checked = self.get_checked_section_names()
+        if len(checked) == 1:
+            old = checked[0]
+        elif len(checked) > 1:
+            QMessageBox.warning(self, "Multiple selected", "Select only one section to rename.")
             return
-        old = self.section_table.item(row, 0).text()
+        else:
+            row = self.section_table.currentRow()
+            if row < 0:
+                return
+            old = self.section_table.item(row, 1).text()
         new, ok = QInputDialog.getText(self, "Rename section", "New name:", text=old)
         if not ok or not new or new == old:
             return
@@ -489,16 +571,10 @@ class MainWindow(QMainWindow):
 
     def merge_sections_dialog(self):
         """Merge multiple selected sections into a new section."""
-        # collect selected section names
-        selected_indexes = self.section_table.selectionModel().selectedRows()
-        selected_names = []
-        for idx in selected_indexes:
-            item = self.section_table.item(idx.row(), 0)
-            if item:
-                selected_names.append(item.text())
-
+        # collect selected section names via checkboxes
+        selected_names = self.get_checked_section_names()
         if len(selected_names) < 2:
-            QMessageBox.warning(self, "Select sections", "Select two or more sections to merge.")
+            QMessageBox.warning(self, "Select sections", "Check two or more sections to merge.")
             return
 
         new_name, ok = QInputDialog.getText(self, "Merge Sections", "New section name:")
@@ -530,7 +606,10 @@ class MainWindow(QMainWindow):
 
     def on_section_selected(self, row, col):
         """Triggered when a row is clicked in the table."""
-        name_item = self.section_table.item(row, 0)
+        # ignore clicks on the checkbox column (column 0)
+        if col == 0:
+            return
+        name_item = self.section_table.item(row, 1)
         if not name_item:
             return
         section = self.seating_plan.sections.get(name_item.text())
