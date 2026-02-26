@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox, QComboBox, QCheckBox
 )
 from PyQt6.QtGui import QBrush, QPen, QPainter
-from PyQt6.QtCore import Qt, pyqtSignal, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QPoint
 from ..models.section import Section
 from ..utils.alphanum_handler import alphanum_range, alphanum_sort_key
 from .dialogs import RangeInputDialog, RenumberRowsDialog
@@ -661,6 +661,18 @@ class SectionView(QWidget):
                 it.setSelected(True)
         self.on_selection_changed()
 
+    def select_all_in_row(self, row_number):
+        """Select all seats in a specific row."""
+        for it in self.scene.items():
+            if isinstance(it, SeatItem) and it.row == row_number:
+                it.setSelected(True)
+        self.on_selection_changed()
+
+    def deselect_all_seats(self):
+        """Deselect all seats."""
+        self.scene.clearSelection()
+        self.on_selection_changed()
+
     # ---------- Zoom ----------
     def on_zoom_slider_changed(self, value):
         if self._updating_slider:
@@ -703,6 +715,24 @@ class ZoomableGraphicsView(QGraphicsView):
             super().wheelEvent(event)
 
     def mousePressEvent(self, event):
+        # Handle right-click (context menu)
+        if event.button() == Qt.MouseButton.RightButton:
+            clicked_item = self.itemAt(event.pos())
+            # Only show menu if clicking on a seat
+            if isinstance(clicked_item, SeatItem):
+                # If the clicked seat is not selected, select it (preserve other selections if Ctrl is held)
+                if not clicked_item.isSelected():
+                    if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+                        # Clear selection if Ctrl is not held
+                        self.scene().clearSelection()
+                    clicked_item.setSelected(True)
+                    self.section_view.on_selection_changed()
+                # Show context menu at mouse position
+                global_pos = self.mapToGlobal(event.pos())
+                self.show_seat_context_menu(global_pos)
+            event.accept()
+            return
+        
         # Start panning when middle button (mouse wheel) is pressed
         if event.button() == Qt.MouseButton.MiddleButton:
             self._panning = True
@@ -736,3 +766,46 @@ class ZoomableGraphicsView(QGraphicsView):
             event.accept()
             return
         super().mouseReleaseEvent(event)
+
+    def show_seat_context_menu(self, global_pos: QPoint):
+        """Show context menu for seat operations."""
+        menu = QMenu(self)
+        
+        selected_items = [item for item in self.scene().selectedItems() if isinstance(item, SeatItem)]
+        if not selected_items:
+            return
+        
+        # Delete selected seats
+        delete_seats_action = menu.addAction("🗑️ Delete Selected Seats")
+        delete_seats_action.triggered.connect(self.section_view.delete_selected_seats)
+        
+        # Delete rows
+        delete_rows_action = menu.addAction("🗑️ Delete Selected Rows")
+        delete_rows_action.triggered.connect(self.section_view.delete_selected_rows)
+        
+        menu.addSeparator()
+        
+        # Move to section
+        move_action = menu.addAction("➡️ Move to Section...")
+        move_action.triggered.connect(self.section_view.move_selected_seats_dialog)
+        
+        menu.addSeparator()
+        
+        # Select all in row
+        if selected_items:
+            rows = set(item.row for item in selected_items)
+            if len(rows) == 1:
+                select_row_action = menu.addAction(f"✓ Select All in Row {list(rows)[0]}")
+                select_row_action.triggered.connect(lambda: self.section_view.select_all_in_row(list(rows)[0]))
+        
+        # Select all in section
+        select_all_action = menu.addAction("✓ Select All in Section")
+        select_all_action.triggered.connect(self.section_view.select_all_seats)
+        
+        menu.addSeparator()
+        
+        # Deselect all
+        deselect_all_action = menu.addAction("✕ Deselect All")
+        deselect_all_action.triggered.connect(self.section_view.deselect_all_seats)
+        
+        menu.exec(global_pos)
