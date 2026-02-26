@@ -655,25 +655,11 @@ class SectionView(QWidget):
                 it.update_visual()
         self.selectionChanged.emit(len(selected))
 
-    def select_all_seats(self):
+    def select_all_seats(self): #TODO: hook up to Ctrl+A
         for it in self.scene.items():
             if isinstance(it, SeatItem):
                 it.setSelected(True)
         self.on_selection_changed()
-
-    # ---------- Zoom helpers ----------
-    def reset_zoom(self):
-        self.view.set_zoom(1.0)
-        self.zoom_slider.setValue(100)
-        self.zoom_label.setText("100%")
-
-    def zoom_in(self):
-        v = min(400, self.zoom_slider.value() + 10)
-        self.zoom_slider.setValue(v)
-
-    def zoom_out(self):
-        v = max(25, self.zoom_slider.value() - 10)
-        self.zoom_slider.setValue(v)
 
     # ---------- Zoom ----------
     def on_zoom_slider_changed(self, value):

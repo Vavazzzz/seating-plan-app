@@ -123,23 +123,6 @@ class Section:
         return new_section
 
     # ---- Serialization (JSON) ----
-    def to_dict(self) -> dict:
-        """Serialize section for hierarchical JSON structure."""
-        rows: Dict[str, List[Seat]] = {}
-        for seat in self.seats.values():
-            rows.setdefault(seat.row_number, []).append(seat)
-        rows_list = []
-        for row_number, seats in rows.items():
-            try:
-                seats_sorted = sorted(seats, key=lambda s: int(s.seat_number))
-            except ValueError:
-                seats_sorted = sorted(seats, key=lambda s: s.seat_number)
-            rows_list.append({
-                "row_number": row_number,
-                "seats": [{"seat_number": s.seat_number} for s in seats_sorted]
-            })
-        return {"name": self.name, "is_ga": self.is_ga, "rows": rows_list}
-
     @classmethod
     def from_dict(cls, data: dict) -> 'Section':
         """Deserialize section from hierarchical JSON structure."""

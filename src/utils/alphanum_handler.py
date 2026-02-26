@@ -68,10 +68,3 @@ def alphanum_sort_key(value: str):
     
     # Other: sort last
     return (3, value, 0, "")
-
-if __name__ == "__main__":
-    # Example usage
-    lst = ["AA", "AB", "AC", "A", "B", "C", "1", "2", "10", "A1", "A10", "B2"]
-    for l in lst:
-        #print(l, ", ", alphanum_sort_key(l))
-        print(type(alphanum_sort_key(l)), alphanum_sort_key(l))
