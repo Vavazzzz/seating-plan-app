@@ -122,10 +122,6 @@ class SectionView(QWidget):
         self.btn_renumber_rows.clicked.connect(self.renumber_selected_rows)
         self.btn_toggle_collapse.clicked.connect(self.toggle_collapse_section)
 
-        # Context menu for move seats
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.show_context_menu)
-
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
 
@@ -208,20 +204,6 @@ class SectionView(QWidget):
             self.load_section(self.section)
 
     # ---------- Context menu and move seats ----------
-    def show_context_menu(self, pos):
-        """Show context menu on right-click if seats are selected."""
-        if not self.section:
-            return
-        selected = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
-        if not selected:
-            return
-
-        menu = QMenu(self)
-        move_action = menu.addAction("Move selected seats to section...")
-        action = menu.exec(self.mapToGlobal(pos))
-        if action == move_action:
-            self.move_selected_seats_dialog()
-
     def move_selected_seats_dialog(self):
         """
         Show dialog to move selected seats to an existing or new section.
@@ -718,18 +700,17 @@ class ZoomableGraphicsView(QGraphicsView):
         # Handle right-click (context menu)
         if event.button() == Qt.MouseButton.RightButton:
             clicked_item = self.itemAt(event.pos())
-            # Only show menu if clicking on a seat
+            # If clicked on a seat, select it (if not already selected)
             if isinstance(clicked_item, SeatItem):
-                # If the clicked seat is not selected, select it (preserve other selections if Ctrl is held)
                 if not clicked_item.isSelected():
                     if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
                         # Clear selection if Ctrl is not held
                         self.scene().clearSelection()
                     clicked_item.setSelected(True)
                     self.section_view.on_selection_changed()
-                # Show context menu at mouse position
-                global_pos = self.mapToGlobal(event.pos())
-                self.show_seat_context_menu(global_pos)
+            # Show context menu at mouse position (always, regardless of selection)
+            global_pos = self.mapToGlobal(event.pos())
+            self.show_seat_context_menu(global_pos)
             event.accept()
             return
         
@@ -768,44 +749,47 @@ class ZoomableGraphicsView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
     def show_seat_context_menu(self, global_pos: QPoint):
-        """Show context menu for seat operations."""
+        """Show context menu for seat operations. Disabled items when no selection."""
         menu = QMenu(self)
         
         selected_items = [item for item in self.scene().selectedItems() if isinstance(item, SeatItem)]
-        if not selected_items:
-            return
+        has_selection = len(selected_items) > 0
         
-        # Delete selected seats
+        # Delete selected seats - enabled only if there are selections
         delete_seats_action = menu.addAction("🗑️ Delete Selected Seats")
+        delete_seats_action.setEnabled(has_selection)
         delete_seats_action.triggered.connect(self.section_view.delete_selected_seats)
         
-        # Delete rows
+        # Delete rows - enabled only if there are selections
         delete_rows_action = menu.addAction("🗑️ Delete Selected Rows")
+        delete_rows_action.setEnabled(has_selection)
         delete_rows_action.triggered.connect(self.section_view.delete_selected_rows)
         
         menu.addSeparator()
         
-        # Move to section
+        # Move to section - enabled only if there are selections
         move_action = menu.addAction("➡️ Move to Section...")
+        move_action.setEnabled(has_selection)
         move_action.triggered.connect(self.section_view.move_selected_seats_dialog)
         
         menu.addSeparator()
         
-        # Select all in row
+        # Select all in row - enabled only if single row is selected
         if selected_items:
             rows = set(item.row for item in selected_items)
             if len(rows) == 1:
                 select_row_action = menu.addAction(f"✓ Select All in Row {list(rows)[0]}")
                 select_row_action.triggered.connect(lambda: self.section_view.select_all_in_row(list(rows)[0]))
         
-        # Select all in section
+        # Select all in section - always enabled
         select_all_action = menu.addAction("✓ Select All in Section")
         select_all_action.triggered.connect(self.section_view.select_all_seats)
         
         menu.addSeparator()
         
-        # Deselect all
+        # Deselect all - enabled only if there are selections
         deselect_all_action = menu.addAction("✕ Deselect All")
+        deselect_all_action.setEnabled(has_selection)
         deselect_all_action.triggered.connect(self.section_view.deselect_all_seats)
         
         menu.exec(global_pos)
