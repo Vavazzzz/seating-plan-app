@@ -123,6 +123,31 @@ class Section:
         return new_section
 
     # ---- Serialization (JSON) ----
+    def to_dict(self) -> dict:
+        """Serialize section to hierarchical JSON structure."""
+        # Group seats by row
+        rows_dict = {}
+        for key, seat in self.seats.items():
+            row_number = seat.row_number
+            if row_number not in rows_dict:
+                rows_dict[row_number] = []
+            rows_dict[row_number].append({"seat_number": seat.seat_number})
+        
+        # Build rows list maintaining order
+        rows = [
+            {
+                "row_number": row_number,
+                "seats": seats
+            }
+            for row_number, seats in rows_dict.items()
+        ]
+        
+        return {
+            "name": self.name,
+            "is_ga": self.is_ga,
+            "rows": rows
+        }
+
     @classmethod
     def from_dict(cls, data: dict) -> 'Section':
         """Deserialize section from hierarchical JSON structure."""
