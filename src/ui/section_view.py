@@ -53,8 +53,6 @@ class SectionView(QWidget):
         self.is_collapsed = False  # State for collapse/expand
 
         # Controls
-        self.btn_add_seat_range = QPushButton("\u2795 Add Seat Range")
-        self.btn_add_seat_range.setToolTip("Add seat range (opens a single dialog).")
         self.btn_add_row_range = QPushButton("\u2795 Add Row Range")
         self.btn_add_row_range.setToolTip("Add multiple rows with seat ranges.")
         self.btn_add_custom_rows = QPushButton("\u2795 Add Custom Rows")
@@ -70,7 +68,6 @@ class SectionView(QWidget):
         self.btn_toggle_collapse.setCheckable(True)
 
         controls_layout = QHBoxLayout()
-        controls_layout.addWidget(self.btn_add_seat_range)
         controls_layout.addWidget(self.btn_add_row_range)
         controls_layout.addWidget(self.btn_add_custom_rows)
         controls_layout.addWidget(self.btn_delete_seat)
@@ -118,7 +115,6 @@ class SectionView(QWidget):
         self.scene.selectionChanged.connect(self.on_selection_changed)
 
         # Connect buttons
-        self.btn_add_seat_range.clicked.connect(self.add_seat_range_dialog)
         self.btn_add_row_range.clicked.connect(self.add_row_range_dialog)
         self.btn_add_custom_rows.clicked.connect(self.add_custom_rows_dialog)
         self.btn_delete_seat.clicked.connect(self.delete_selected_seats)
@@ -289,59 +285,6 @@ class SectionView(QWidget):
         self.sectionModified.emit()
 
     # ---------- Seat Manipulation ----------
-    def add_seat_range_dialog(self):
-        if not self.section:
-            return
-        dialog = RangeInputDialog("seat", self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        data = dialog.get_values()
-        row_raw = data.get("row")
-        prefix = data.get("row_prefix", "") or ""
-        suffix = data.get("row_suffix", "") or ""
-        if not row_raw:
-            return
-        
-        # compose final row label with prefix/suffix
-        row_label = f"{prefix}{row_raw}{suffix}"
-
-        start = data["start_seat"]
-        end = data["end_seat"]
-        parity = data.get("parity", "all")
-
-        # build seat labels using alphanum helper
-        seats = alphanum_range(start, end)
-        if not seats:
-            # fallback: attempt numeric interpretation
-            try:
-                a = int(start); b = int(end)
-                if a > b:
-                    a, b = b, a
-                seats = [str(i) for i in range(a, b+1)]
-            except Exception:
-                QMessageBox.warning(self, "Invalid range", "Could not interpret start/end seat range.")
-                return
-
-        # notify about to modify (so undo snapshot can be taken)
-        self.aboutToModify.emit()
-
-        if parity == "all":
-            for s in seats:
-                self.section.add_seat(row_label, s)
-        else:
-            for s in seats:
-                if s.isdigit():
-                    val = int(s)
-                    keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
-                    if keep:
-                        self.section.add_seat(row_label, s)
-                else:
-                    # skip non-numeric seat labels for even/odd parity
-                    continue
-
-        self.load_section(self.section)
-        self.sectionModified.emit()
-
     def add_row_range_dialog(self):
         if not self.section:
             return
