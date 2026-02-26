@@ -8,10 +8,72 @@ from PyQt6.QtWidgets import (
     QDialog, QLineEdit, QDialogButtonBox
 )
 from PyQt6.QtGui import QAction, QColor, QBrush
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QMimeData, QByteArray
 from ..models.seating_plan import SeatingPlan, MergeConflictError
 from ..utils.json_io import import_project_dialog, import_from_excel_dialog, import_from_avail_dialog, export_project_dialog, export_to_excel_dialog
 from .section_view import SectionView
+
+class DragDropSectionTable(QTableWidget):
+    """Custom QTableWidget that supports drag & drop to reorder sections."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Disabilitare il drag drop automatico di PyQt per gestirlo manualmente
+        self.setDragDropMode(self.DragDropMode.InternalMove)
+        self.setSelectionMode(self.SelectionMode.SingleSelection)
+        self.setSelectionBehavior(self.SelectionBehavior.SelectRows)
+        self.drag_source_row = None
+        self.main_window = None  # Will be set by MainWindow
+    
+    def mousePressEvent(self, event):
+        """Override mouse press to track drag source row."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            item = self.itemAt(event.pos())
+            if item:
+                # Only allow selection of non-checkbox columns for drag operations
+                col = self.column(item)
+                if col != 0:  # Not checkbox column
+                    self.drag_source_row = self.row(item)
+        super().mousePressEvent(event)
+    
+    def dropEvent(self, event):
+        """Handle drop event to reorder sections."""
+        if event.source() is not self:
+            event.ignore()
+            return
+        
+        # Get drop position (use position() instead of pos() for QDropEvent)
+        drop_pos = event.position().toPoint()
+        drop_index = self.indexAt(drop_pos).row()
+        if drop_index < 0:
+            drop_index = self.rowCount()
+        
+        if self.drag_source_row is not None and self.drag_source_row != drop_index:
+            # Get section names in current order
+            section_names = []
+            for row in range(self.rowCount()):
+                item = self.item(row, 1)
+                if item:
+                    section_names.append(item.text())
+            
+            # Calculate actual drop index (consider the drag source position)
+            actual_drop_index = drop_index
+            if drop_index > self.drag_source_row:
+                actual_drop_index = drop_index - 1
+            
+            # Move the dragged section in the list
+            if self.drag_source_row < len(section_names):
+                dragged_name = section_names.pop(self.drag_source_row)
+                section_names.insert(actual_drop_index, dragged_name)
+                
+                # Call reorder method on MainWindow
+                if self.main_window:
+                    self.main_window.on_sections_reordered(section_names)
+        
+        self.drag_source_row = None
+        # Deselect all rows after drop
+        self.clearSelection()
+        event.accept()
 
 class MainWindow(QMainWindow):
     """The application's main window."""
@@ -37,22 +99,17 @@ class MainWindow(QMainWindow):
 
         # --- Dock: Sections table ---
         # Now includes a checkbox column for multi-selection
-        self.section_table = QTableWidget(0, 3)
+        self.section_table = DragDropSectionTable(0, 3)
         self.section_table.setHorizontalHeaderLabels(["Select", "Section", "Seats"])
         # Resize: checkbox small, section stretch, seats fit contents
         self.section_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.section_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.section_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.section_table.verticalHeader().setVisible(False)
-        self.section_table.setSelectionBehavior(self.section_table.SelectionBehavior.SelectRows)
-        # Allow selecting multiple sections for operations like merge
-        try:
-            self.section_table.setSelectionMode(self.section_table.SelectionMode.MultiSelection)
-        except Exception:
-            # fallback in case different PyQt enums are present
-            from PyQt6.QtWidgets import QAbstractItemView
-            self.section_table.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.section_table.setEditTriggers(self.section_table.EditTrigger.NoEditTriggers)
+
+        # Set reference to MainWindow in the table for callbacks
+        self.section_table.main_window = self
 
         # track checked state between refreshes: {section_name: bool}
         self.section_checks: dict[str, bool] = {}
@@ -618,6 +675,28 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"\ud83d\udccd Loaded section '{name_item.text()}' ({len(section.seats)} seats)")
             # reset selected counter
             self.update_selected_count(0)
+
+    def on_sections_reordered(self, section_names: list):
+        """Reorder sections in SeatingPlan based on new order from drag & drop."""
+        try:
+            # Push undo snapshot BEFORE modifying
+            self.push_undo_snapshot("Reorder sections")
+            
+            # Create new ordered dict
+            new_sections = {}
+            for name in section_names:
+                if name in self.seating_plan.sections:
+                    new_sections[name] = self.seating_plan.sections[name]
+            
+            # Update seating plan with new order
+            self.seating_plan.sections = new_sections
+            
+            # Refresh the table to reflect new order
+            self.refresh_section_table()
+            
+            self.status_label.setText("📝 Sections reordered")
+        except Exception as e:
+            QMessageBox.warning(self, "Reorder Failed", str(e))
 
     def update_selected_count(self, selected_count: int):
         """Update selected seat count in status bar."""
