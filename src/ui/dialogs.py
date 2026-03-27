@@ -40,6 +40,12 @@ class RangeInputDialog(QDialog):
         self.start_seat_field.setPlaceholderText("e.g. 1 or A")
         self.end_seat_field.setPlaceholderText("e.g. 10 or F")
 
+        # Seat prefix/suffix
+        self.seat_prefix_field = QLineEdit()
+        self.seat_prefix_field.setPlaceholderText("Optional prefix (before seat label)")
+        self.seat_suffix_field = QLineEdit()
+        self.seat_suffix_field.setPlaceholderText("Optional suffix (after seat label)")
+
         self.parity_combo = QComboBox()
         self.parity_combo.addItems(["All", "Even", "Odd"])
 
@@ -70,6 +76,10 @@ class RangeInputDialog(QDialog):
 
         layout.addRow("Start seat:", self.start_seat_field)
         layout.addRow("End seat:", self.end_seat_field)
+
+        layout.addRow("Seat prefix:", self.seat_prefix_field)
+        layout.addRow("Seat suffix:", self.seat_suffix_field)
+
         layout.addRow("Seat filter:", self.parity_combo)
         if mode == "row":
             layout.addRow(self.continuous_checkbox)
@@ -106,7 +116,9 @@ class RangeInputDialog(QDialog):
                 "continuous": bool(self.continuous_checkbox.isChecked()),
                 "unnambered_rows" : bool(self.unnamberedrows_checkbox.isChecked()),
                 "row_prefix" : self.row_prefix_field.text().strip(),
-                "row_suffix" : self.row_suffix_field.text().strip()
+                "row_suffix" : self.row_suffix_field.text().strip(),
+                "seat_prefix" : self.seat_prefix_field.text().strip(),
+                "seat_suffix" : self.seat_suffix_field.text().strip()
             })
             return base
 

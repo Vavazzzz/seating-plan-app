@@ -276,8 +276,10 @@ class SectionView(QWidget):
         data = dialog.get_values()
         start_row = data.get("start_row")
         end_row = data.get("end_row")
-        prefix = data.get("row_prefix", "") or ""
-        suffix = data.get("row_suffix", "") or ""
+        row_prefix = data.get("row_prefix", "") or ""
+        row_suffix = data.get("row_suffix", "") or ""
+        seat_prefix = data.get("seat_prefix", "") or ""
+        seat_suffix = data.get("seat_suffix", "") or ""
         if not start_row or not end_row:
             return
 
@@ -307,7 +309,7 @@ class SectionView(QWidget):
             rows = [f"#{r}" for r in rows_raw]
         else:
             # Compose final row labels with prefix/suffix
-            rows = [f"{prefix}{r}{suffix}" for r in rows_raw]
+            rows = [f"{row_prefix}{r}{row_suffix}" for r in rows_raw]
 
         if not rows:
             return
@@ -338,12 +340,12 @@ class SectionView(QWidget):
                 for i in range(seats_per_row):
                     seat_label = str(seq)
                     if parity == "all":
-                        self.section.add_seat(_row, seat_label)
+                        self.section.add_seat(_row, f"{seat_prefix}{seat_label}{seat_suffix}")
                     else:
                         val = int(seat_label)
                         keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
                         if keep:
-                            self.section.add_seat(_row, seat_label)
+                            self.section.add_seat(_row, f"{seat_prefix}{seat_label}{seat_suffix}")
                     seq += 1
         else:
             # standard behavior: apply same seat range for each row
@@ -362,7 +364,7 @@ class SectionView(QWidget):
             if parity == "all":
                 for r in rows:
                     for s in seats:
-                        self.section.add_seat(r, s)
+                        self.section.add_seat(r, f"{seat_prefix}{s}{seat_suffix}")
             else:
                 for r in rows:
                     for s in seats:
@@ -370,7 +372,7 @@ class SectionView(QWidget):
                             val = int(s)
                             keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
                             if keep:
-                                self.section.add_seat(r, s)
+                                self.section.add_seat(r, f"{seat_prefix}{s}{seat_suffix}")
                         else:
                             # skip non-numeric for even/odd
                             continue
