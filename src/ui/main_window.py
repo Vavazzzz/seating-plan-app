@@ -7,8 +7,8 @@ from PyQt6.QtWidgets import (
     QPushButton, QHeaderView, QStatusBar, QLabel, QCheckBox,
     QDialog, QLineEdit, QDialogButtonBox
 )
-from PyQt6.QtGui import QAction, QColor, QBrush
-from PyQt6.QtCore import Qt, QMimeData, QByteArray
+from PyQt6.QtGui import QAction
+from PyQt6.QtCore import Qt
 from ..models.seating_plan import SeatingPlan, MergeConflictError
 from ..utils.json_io import import_project_dialog, import_from_excel_dialog, import_from_avail_dialog, export_project_dialog, export_to_excel_dialog
 from .section_view import SectionView

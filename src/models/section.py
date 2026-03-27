@@ -1,7 +1,7 @@
-from typing import Dict, List, Any, Union
-from .seat import Seat
+from typing import Dict, Union
 import copy
-from ..utils.alphanum_handler import alphanum_range, to_index, from_index, alphanum_sort_key
+from .seat import Seat
+from ..utils.alphanum_handler import alphanum_range, to_index, from_index
 
 class Section:
     """Represents a section containing multiple seats."""
@@ -18,34 +18,73 @@ class Section:
         if seat_key not in self.seats:
             self.seats[seat_key] = Seat(row, seat_number)
 
-    def add_seat_range(self, row: str, start_seat: Union[int, str], end_seat: Union[int, str]) -> None:
+    def add_seat_range(
+        self, 
+        row: str, 
+        start_seat: Union[int, str], 
+        end_seat: Union[int, str],
+        seat_prefix: str = "",
+        seat_suffix: str = "",
+        parity: str = "all"
+    ) -> None:
         """
         Add seats for a given 'row' between start_seat and end_seat inclusive.
-
-        start_seat and end_seat may be ints (or strings of digits) or alphabetic labels
-        (e.g. 'A'..'Z' or multi-letter like 'AA'). This uses alphanum_range() to generate
-        the full list of labels and will add each seat label to the row.
         """
-        # normalize to strings
         s_start = str(start_seat)
         s_end = str(end_seat)
 
-        # build list using alphanumeric helper (handles numeric and alphabetic ranges)
         seats = alphanum_range(s_start, s_end)
-        # If alphanum_range returns empty (invalid), attempt a best-effort fallback:
         if not seats:
             try:
                 a = int(s_start)
                 b = int(s_end)
-                if a > b:
-                    a, b = b, a
+                if a > b: a, b = b, a
                 seats = [str(i) for i in range(a, b + 1)]
             except Exception:
-                # give up silently (no seats added) - caller/UI can warn
                 return
 
         for s in seats:
-            self.add_seat(row, str(s))
+            if parity != "all" and s.isdigit():
+                val = int(s)
+                if (parity == "even" and val % 2 != 0) or (parity == "odd" and val % 2 == 0):
+                    continue
+            elif parity != "all" and not s.isdigit():
+                continue
+                
+            self.add_seat(row, f"{seat_prefix}{s}{seat_suffix}")
+
+    def add_rows_bulk(
+        self, 
+        rows: list[str], 
+        start_seat: str, 
+        end_seat: str, 
+        seat_prefix: str = "", 
+        seat_suffix: str = "", 
+        parity: str = "all", 
+        continuous: bool = False
+    ) -> None:
+        """Handles complex bulk seat addition logic for multiple rows."""
+        if continuous:
+            try:
+                s0, s1 = int(start_seat), int(end_seat)
+                current_val = min(s0, s1)
+                seats_per_row = abs(s1 - s0) + 1
+                
+                for row in rows:
+                    added_in_row = 0
+                    while added_in_row < seats_per_row:
+                        seat_label = str(current_val)
+                        is_even = current_val % 2 == 0
+                        if parity == "all" or (parity == "even" and is_even) or (parity == "odd" and not is_even):
+                            self.add_seat(row, f"{seat_prefix}{seat_label}{seat_suffix}")
+                        added_in_row += 1
+                        current_val += 1
+                return
+            except ValueError:
+                pass # Fall back to standard range if not numeric
+
+        for row in rows:
+            self.add_seat_range(row, start_seat, end_seat, seat_prefix, seat_suffix, parity)
 
     def delete_seat(self, row: str, seat_number: str) -> None:
         seat_key = f"{row}-{seat_number}"

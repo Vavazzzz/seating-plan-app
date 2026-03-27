@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import (
-    QDialog, QFormLayout, QLineEdit, QComboBox, QDialogButtonBox, QCheckBox, QLabel, QMessageBox
-)
+    QDialog, QFormLayout, QLineEdit, QComboBox, QDialogButtonBox, QCheckBox, QLabel)
 
 class RangeInputDialog(QDialog):
     """
