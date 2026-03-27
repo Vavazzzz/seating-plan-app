@@ -1,4 +1,5 @@
-from typing import Dict, Union
+from typing import Dict, Union, List
+from collections import defaultdict
 import copy
 from .seat import Seat
 from ..utils.alphanum_handler import alphanum_range, to_index, from_index
@@ -164,15 +165,11 @@ class Section:
     # ---- Serialization (JSON) ----
     def to_dict(self) -> dict:
         """Serialize section to hierarchical JSON structure."""
-        # Group seats by row
-        rows_dict = {}
-        for key, seat in self.seats.items():
-            row_number = seat.row_number
-            if row_number not in rows_dict:
-                rows_dict[row_number] = []
-            rows_dict[row_number].append({"seat_number": seat.seat_number})
+        # Group seats by row efficiently using defaultdict
+        rows_dict = defaultdict(list)
+        for seat in self.seats.values():
+            rows_dict[seat.row_number].append({"seat_number": seat.seat_number})
         
-        # Build rows list maintaining order
         rows = [
             {
                 "row_number": row_number,
