@@ -2,6 +2,7 @@ import re
 from bs4 import BeautifulSoup
 from openpyxl import load_workbook, Workbook
 from ..models.seating_plan import SeatingPlan
+from .alphanum_handler import alphanum_sort_key
 
 def import_excel_to_plan(file_path: str, plan: SeatingPlan) -> None:
     """Parses an Excel file and populates the provided SeatingPlan object."""
@@ -78,12 +79,9 @@ def export_plan_to_excel(file_path: str, plan: SeatingPlan) -> None:
             rows.setdefault(seat.row_number, []).append(str(seat.seat_number))
 
         for row_number, seat_list in rows.items():
-            try:
-                # Sort numeric strings correctly
-                seat_list_sorted = sorted(seat_list, key=lambda x: int(x) if x.isdigit() else x)
-            except ValueError:
-                seat_list_sorted = sorted(seat_list)
-                
+            # Sort seats using the robust alphanumeric sort key
+            seat_list_sorted = sorted(seat_list, key=alphanum_sort_key)
+
             ws.append([
                 section.name,
                 row_number,
