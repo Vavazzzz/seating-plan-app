@@ -276,8 +276,10 @@ class SectionView(QWidget):
         data = dialog.get_values()
         start_row = data.get("start_row")
         end_row = data.get("end_row")
-        prefix = data.get("row_prefix", "") or ""
-        suffix = data.get("row_suffix", "") or ""
+        row_prefix = data.get("row_prefix", "") or ""
+        row_suffix = data.get("row_suffix", "") or ""
+        seat_prefix = data.get("seat_prefix", "") or ""
+        seat_suffix = data.get("seat_suffix", "") or ""
         if not start_row or not end_row:
             return
 
@@ -307,7 +309,7 @@ class SectionView(QWidget):
             rows = [f"#{r}" for r in rows_raw]
         else:
             # Compose final row labels with prefix/suffix
-            rows = [f"{prefix}{r}{suffix}" for r in rows_raw]
+            rows = [f"{row_prefix}{r}{row_suffix}" for r in rows_raw]
 
         if not rows:
             return
@@ -315,65 +317,15 @@ class SectionView(QWidget):
         # notify before bulk modification
         self.aboutToModify.emit()
 
-        # Continuous numbering logic only supported for numeric seat labels
-        if continuous:
-            # verify numeric seats
-            try:
-                s0 = int(start_seat); s1 = int(end_seat)
-            except Exception:
-                QMessageBox.warning(self, "Continuous numbering",
-                                    "Continuous numbering is only supported for numeric seat labels. Falling back to per-row numbering.")
-                continuous = False
-
-        if continuous:
-            # compute seats per row and sequential numbering across rows
-            if s0 <= s1:
-                seats_per_row = s1 - s0 + 1
-                seq = s0
-            else:
-                seats_per_row = s0 - s1 + 1
-                seq = s1
-
-            for _row in rows:
-                for i in range(seats_per_row):
-                    seat_label = str(seq)
-                    if parity == "all":
-                        self.section.add_seat(_row, seat_label)
-                    else:
-                        val = int(seat_label)
-                        keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
-                        if keep:
-                            self.section.add_seat(_row, seat_label)
-                    seq += 1
-        else:
-            # standard behavior: apply same seat range for each row
-            seats = alphanum_range(start_seat, end_seat)
-            if not seats:
-                # fallback to numeric if possible
-                try:
-                    a = int(start_seat); b = int(end_seat)
-                    if a > b:
-                        a, b = b, a
-                    seats = [str(i) for i in range(a, b+1)]
-                except Exception:
-                    QMessageBox.warning(self, "Invalid seats", "Could not interpret start/end seat range.")
-                    return
-
-            if parity == "all":
-                for r in rows:
-                    for s in seats:
-                        self.section.add_seat(r, s)
-            else:
-                for r in rows:
-                    for s in seats:
-                        if s.isdigit():
-                            val = int(s)
-                            keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
-                            if keep:
-                                self.section.add_seat(r, s)
-                        else:
-                            # skip non-numeric for even/odd
-                            continue
+        self.section.add_rows_bulk(
+            rows=rows,
+            start_seat=start_seat,
+            end_seat=end_seat,
+            seat_prefix=seat_prefix,
+            seat_suffix=seat_suffix,
+            parity=parity,
+            continuous=continuous
+        )
 
         self.load_section(self.section)
         self.sectionModified.emit()
@@ -475,78 +427,17 @@ class SectionView(QWidget):
         # Parse rows from text (one per line, strip whitespace, apply prefix/suffix)
         rows_raw = [line.strip() for line in rows_text_value.split('\n') if line.strip()]
         rows = [f"{prefix}{r}{suffix}" for r in rows_raw]
-        
-        if not rows:
-            QMessageBox.warning(self, "No Rows", "No valid rows were entered.")
-            return
-        
-        # Get seat range
-        seats = alphanum_range(start_seat, end_seat)
-        if not seats:
-            # fallback to numeric if possible
-            try:
-                a = int(start_seat); b = int(end_seat)
-                if a > b:
-                    a, b = b, a
-                seats = [str(i) for i in range(a, b+1)]
-            except Exception:
-                QMessageBox.warning(self, "Invalid seats", "Could not interpret start/end seat range.")
-                return
-        
-        if not seats:
-            QMessageBox.warning(self, "No Seats", "Could not generate seat range.")
-            return
-        
+
         # notify before bulk modification
         self.aboutToModify.emit()
-        
-        # Add seats with options
-        if continuous:
-            # Continuous numbering logic only supported for numeric seat labels
-            try:
-                s0 = int(start_seat); s1 = int(end_seat)
-            except Exception:
-                QMessageBox.warning(self, "Continuous numbering",
-                                    "Continuous numbering is only supported for numeric seat labels. Falling back to per-row numbering.")
-                continuous = False
-        
-        if continuous:
-            # compute seats per row and sequential numbering across rows
-            if s0 <= s1:
-                seats_per_row = s1 - s0 + 1
-                seq = s0
-            else:
-                seats_per_row = s0 - s1 + 1
-                seq = s1
-            
-            for row in rows:
-                for i in range(seats_per_row):
-                    seat_label = str(seq)
-                    if parity == "all":
-                        self.section.add_seat(row, seat_label)
-                    else:
-                        val = int(seat_label)
-                        keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
-                        if keep:
-                            self.section.add_seat(row, seat_label)
-                    seq += 1
-        else:
-            # Standard behavior: apply same seat range for each row
-            if parity == "all":
-                for row in rows:
-                    for seat in seats:
-                        self.section.add_seat(row, seat)
-            else:
-                for row in rows:
-                    for seat in seats:
-                        if seat.isdigit():
-                            val = int(seat)
-                            keep = (val % 2 == 0) if parity == "even" else (val % 2 == 1)
-                            if keep:
-                                self.section.add_seat(row, seat)
-                        else:
-                            # skip non-numeric for even/odd
-                            continue
+
+        self.section.add_rows_bulk(
+            rows=rows,
+            start_seat=start_seat,
+            end_seat=end_seat,
+            parity=parity,
+            continuous=continuous
+        )
         
         self.load_section(self.section)
         self.sectionModified.emit()

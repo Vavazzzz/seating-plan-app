@@ -1,4 +1,5 @@
 import sys
+import json
 import copy
 from pathlib import Path
 from PyQt6.QtWidgets import (
@@ -7,8 +8,8 @@ from PyQt6.QtWidgets import (
     QPushButton, QHeaderView, QStatusBar, QLabel, QCheckBox,
     QDialog, QLineEdit, QDialogButtonBox
 )
-from PyQt6.QtGui import QAction, QColor, QBrush
-from PyQt6.QtCore import Qt, QMimeData, QByteArray
+from PyQt6.QtGui import QAction
+from PyQt6.QtCore import Qt
 from ..models.seating_plan import SeatingPlan, MergeConflictError
 from ..utils.json_io import import_project_dialog, import_from_excel_dialog, import_from_avail_dialog, export_project_dialog, export_to_excel_dialog
 from .section_view import SectionView
@@ -422,7 +423,9 @@ class MainWindow(QMainWindow):
         if not path.lower().endswith((".json", ".seatproj")):
             path += ".seatproj"
         try:
-            self.seating_plan.export_project(path)
+            data = self.seating_plan.to_dict()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
             self.status_label.setText(f"\ud83d\udcbe Saved project: {Path(path).name} (Ctrl+S)")
         except Exception as e:
             QMessageBox.warning(self, "Save failed", str(e))
