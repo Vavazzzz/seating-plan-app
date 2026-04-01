@@ -2,6 +2,8 @@
 
 from src.models.seating_plan import SeatingPlan
 from src.models.section import Section
+from src.utils.alphanum_handler import alphanum_sort_key
+import pytest
 
 
 def test_reorder_sections_via_dict_recreation():
@@ -177,3 +179,103 @@ def test_reorder_with_different_section_counts():
         sp.sections = new_sections
         
         assert list(sp.sections.keys()) == reversed_order
+
+
+def test_undo_redo_stack_logic():
+    """Simulate the MainWindow undo/redo stack behavior."""
+    import copy
+    undo_stack = []
+    redo_stack = []
+    plan = SeatingPlan("Initial")
+    
+    # Action 1: Add Section
+    undo_stack.append(copy.deepcopy(plan))
+    plan.add_section("Section 1")
+    redo_stack.clear()
+    
+    # Action 2: Add Seat
+    undo_stack.append(copy.deepcopy(plan))
+    plan.sections["Section 1"].add_seat("1", "1")
+    
+    assert len(undo_stack) == 2
+    
+    # Undo Action 2
+    redo_stack.append(copy.deepcopy(plan))
+    plan = undo_stack.pop()
+    assert "1-1" not in plan.sections["Section 1"].seats
+    
+    # Redo Action 2
+    undo_stack.append(copy.deepcopy(plan))
+    plan = redo_stack.pop()
+    assert "1-1" in plan.sections["Section 1"].seats
+    
+    # New Action (Should clear redo)
+    undo_stack.append(copy.deepcopy(plan))
+    plan.add_section("Section 2")
+    redo_stack.clear()
+    assert len(redo_stack) == 0
+
+
+def test_sorting_logic_consistency():
+    """Test the alphanum_sort_key used by SectionView for visual consistency."""
+    rows = ["Row 10", "Row 2", "Row 1", "Row 11", "A1", "A10", "A2"]
+    sorted_rows = sorted(rows, key=alphanum_sort_key)
+    
+    # Expect natural sorting: Numbers within strings should be compared as integers
+    expected = ["Row 1", "Row 2", "Row 10", "Row 11", "A1", "A2", "A10"]
+    assert sorted_rows == expected
+
+
+def test_renumber_rows_with_prefixes():
+    """Test the 'Unnumbered Rows' feature from RenumberRowsDialog."""
+    s = Section("Test")
+    s.add_seat("A", "1")
+    s.add_seat("B", "1")
+    
+    # Simulate renumbering A, B starting from 1 with prefix=True
+    s.renumber_rows(["A", "B"], "1", add_prefix=True)
+    
+    assert "#1-1" in s.seats
+    assert "#2-1" in s.seats
+    assert s.seats["#1-1"].row_number == "#1"
+    assert "A-1" not in s.seats
+
+
+def test_continuous_numbering_across_rows():
+    """Test the continuous numbering logic used by the RangeInputDialog."""
+    s = Section("Test")
+    # 2 rows, seats 1 to 5, continuous=True
+    # Row 1 should get 1, 2, 3, 4, 5
+    # Row 2 should get 6, 7, 8, 9, 10
+    s.add_rows_bulk(
+        rows=["Row 1", "Row 2"],
+        start_seat="1",
+        end_seat="5",
+        continuous=True
+    )
+    
+    assert "Row 1-1" in s.seats
+    assert "Row 1-5" in s.seats
+    assert "Row 2-6" in s.seats
+    assert "Row 2-10" in s.seats
+    assert len(s.seats) == 10
+
+
+def test_merge_sections_preserves_ga_status():
+    """Test that merging sections respects the GA (General Admission) flag logic."""
+    sp = SeatingPlan()
+    sp.add_section("GA1", is_ga=True)
+    sp.add_section("GA2", is_ga=True)
+    sp.add_section("Reserved", is_ga=False)
+    
+    sp.sections["GA1"].add_seat("GA", "1")
+    sp.sections["GA2"].add_seat("GA", "2")
+    sp.sections["Reserved"].add_seat("1", "1")
+    
+    # Merge GA1 and GA2 -> should be GA
+    sp.merge_sections(["GA1", "GA2"], "MergedGA")
+    assert sp.sections["MergedGA"].is_ga is True
+    
+    # Merge GA1 and Reserved -> should NOT be GA (mixed)
+    sp.merge_sections(["GA1", "Reserved"], "Mixed")
+    assert sp.sections["Mixed"].is_ga is False
