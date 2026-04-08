@@ -5,6 +5,9 @@ on:
     tags:
       - 'mac-v*' # Trigger only on Mac-specific tags (e.g., mac-v1.1.9)
 
+permissions:
+  contents: write
+
 jobs:
   build-macos:
     runs-on: macos-latest
