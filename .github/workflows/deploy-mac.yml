@@ -27,10 +27,7 @@ jobs:
 
       # Note: Ensure src/ui/main_window.py is your actual entry point
       - name: Build with PyInstaller
-        run: |
-          pyinstaller --noconfirm --windowed --name "SeatingPlan-macOS" \
-          --add-data "src:src" \
-          src/ui/main_window.py
+        run: pyinstaller SeatingPlan.spec
 
       - name: Create DMG
         run: |
@@ -41,11 +38,11 @@ jobs:
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
-            --icon "SeatingPlan-macOS.app" 200 190 \
-            --hide-extension "SeatingPlan-macOS.app" \
+            --icon "SeatingPlan.app" 200 190 \
+            --hide-extension "SeatingPlan.app" \
             --app-drop-link 600 185 \
             "dist/dmg/SeatingPlan-${{ github.ref_name }}.dmg" \
-            "dist/SeatingPlan-macOS.app"
+            "dist/SeatingPlan.app"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
