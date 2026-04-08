@@ -51,6 +51,14 @@ exe = EXE(
     entitlements_file=None,
 )
 
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name='SeatingPlan.app',
+        icon=None,
+        bundle_identifier='com.seatingplan.editor',
+    )
+
 if sys.platform == 'win32':
     coll = COLLECT(
         exe,
