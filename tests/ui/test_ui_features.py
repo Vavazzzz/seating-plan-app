@@ -1,7 +1,7 @@
 """Tests for UI features that affect the model."""
 
-from src.models.seating_plan import SeatingPlan
-from src.models.section import Section
+from domain.models.seating_plan import SeatingPlan
+from domain.models.section import Section
 
 
 def test_reorder_sections_via_dict_recreation():

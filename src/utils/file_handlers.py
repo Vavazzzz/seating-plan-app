@@ -1,8 +1,8 @@
 import re
 from bs4 import BeautifulSoup
 from openpyxl import load_workbook, Workbook
-from ..models.seating_plan import SeatingPlan
-from .alphanum_handler import alphanum_sort_key
+from ..domain.models.seating_plan import SeatingPlan
+from ..infrastructure.utils.alphanum_handler import alphanum_sort_key
 
 def import_excel_to_plan(file_path: str, plan: SeatingPlan) -> None:
     """Parses an Excel file and populates the provided SeatingPlan object."""

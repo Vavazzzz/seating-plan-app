@@ -2,8 +2,8 @@ import json
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from pathlib import Path
 from typing import Optional
-from ..models.seating_plan import SeatingPlan
-from .file_handlers import import_excel_to_plan, import_avail_xml_to_plan, export_plan_to_excel
+from ...domain.models.seating_plan import SeatingPlan
+from ...utils.file_handlers import import_excel_to_plan, import_avail_xml_to_plan, export_plan_to_excel
 
 _last_dir: Path | None = None  # remembers last used folder
 

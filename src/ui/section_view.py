@@ -6,9 +6,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QBrush, QPen, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QPoint
-from ..models.section import Section
-from ..utils.alphanum_handler import alphanum_range, alphanum_sort_key
-from .dialogs import RangeInputDialog, RenumberRowsDialog
+from ..domain.models.section import Section
+from ..infrastructure.utils.alphanum_handler import alphanum_range, alphanum_sort_key
+from .dialogs.dialogs import RangeInputDialog, RenumberRowsDialog
 from string import ascii_uppercase
 
 class SeatItemRect:
