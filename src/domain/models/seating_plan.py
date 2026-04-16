@@ -2,9 +2,7 @@ import json
 import re
 from typing import Dict, List
 from .section import Section
-
-class MergeConflictError(Exception):
-    """Raised when attempting to merge sections that contain conflicting seats."""
+from ..exceptions import MergeConflictError
 
 class SeatingPlan:
     """Represents an entire seating plan project with multiple sections."""

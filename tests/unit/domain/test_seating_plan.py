@@ -1,4 +1,5 @@
-from domain.models.seating_plan import SeatingPlan, MergeConflictError
+from domain.models.seating_plan import SeatingPlan
+from domain.exceptions import MergeConflictError
 
 
 def test_add_and_delete_section():

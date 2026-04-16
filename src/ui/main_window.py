@@ -10,7 +10,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
-from ..domain.models.seating_plan import SeatingPlan, MergeConflictError
+from ..domain.models.seating_plan import SeatingPlan
+from ..domain.exceptions import MergeConflictError
 from ..infrastructure.import_export.json_io import import_project_dialog, import_from_excel_dialog, import_from_avail_dialog, export_project_dialog, export_to_excel_dialog
 from .section_view import SectionView
 
