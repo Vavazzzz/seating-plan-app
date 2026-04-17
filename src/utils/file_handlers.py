@@ -1,3 +1,10 @@
+"""Legacy file import/export handlers (Excel and Avail XML).
+
+Note: These functions are used by the legacy UI. For modern applications,
+use the infrastructure.import_export module instead, which implements
+the abstract adapter pattern and integrates with the application services.
+"""
+
 import re
 from bs4 import BeautifulSoup
 from openpyxl import load_workbook, Workbook
