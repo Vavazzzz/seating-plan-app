@@ -9,6 +9,8 @@ from ..commands.seat_commands import (
     DeleteRowCommand,
     AddSeatRangeCommand,
     DeleteSeatsCommand,
+    AddRowsCommand,
+    RenumberRowsCommand,
 )
 from ...domain.models.section import Section
 
@@ -221,6 +223,71 @@ class SeatService(BaseService):
             errors.add(f"Failed to delete seats: {str(e)}")
             return Result.failure(errors)
     
+    def add_rows_bulk(
+        self,
+        section_name: str,
+        rows: List[str],
+        start_seat: str,
+        end_seat: str,
+        seat_prefix: str = "",
+        seat_suffix: str = "",
+        parity: str = "all",
+        continuous: bool = False,
+    ) -> Result[int, ValidationErrors]:
+        """Add multiple rows with seat ranges.
+        
+        Args:
+            section_name: Name of section
+            rows: List of row numbers/labels to add
+            start_seat: Starting seat for each row
+            end_seat: Ending seat for each row
+            seat_prefix: Optional prefix for seat labels
+            seat_suffix: Optional suffix for seat labels
+            parity: Filter ('all', 'even', 'odd')
+            continuous: If True, incrementally advance seats across rows
+            
+        Returns:
+            Result with total seat count on success, validation errors on failure
+        """
+        self.clear_validation_errors()
+        
+        # Validation
+        if not section_name or not section_name.strip():
+            self.validate(False, "Section name cannot be empty")
+        elif section_name not in self.seating_plan.sections:
+            self.validate(False, f"Section '{section_name}' not found")
+        elif not rows:
+            self.validate(False, "At least one row must be specified")
+        elif not start_seat or not start_seat.strip():
+            self.validate(False, "Start seat cannot be empty")
+        elif not end_seat or not end_seat.strip():
+            self.validate(False, "End seat cannot be empty")
+        
+        if self.has_validation_errors():
+            return Result.failure(self.get_validation_errors())
+        
+        try:
+            section = self.seating_plan.sections[section_name]
+            cmd = AddRowsCommand(
+                section,
+                rows,
+                start_seat,
+                end_seat,
+                seat_prefix=seat_prefix,
+                seat_suffix=seat_suffix,
+                parity=parity,
+                continuous=continuous,
+            )
+            self.command_handler.execute(cmd)
+            
+            # Return total count of seats added
+            total_seats = len(section.seats)
+            return Result.success(total_seats)
+        except Exception as e:
+            errors = ValidationErrors()
+            errors.add(f"Failed to add rows: {str(e)}")
+            return Result.failure(errors)
+    
     def get_section_seats(self, section_name: str) -> Result[List[Tuple[str, str]], ValidationErrors]:
         """Get all seats in a section as (row, seat) tuples.
         
@@ -286,3 +353,46 @@ class SeatService(BaseService):
         section = self.seating_plan.sections[section_name]
         seat_key = f"{row}-{seat}"
         return seat_key in section.seats
+    
+    def renumber_rows(
+        self,
+        section_name: str,
+        old_rows: List[str],
+        new_start_row: str,
+        add_prefix: bool = False,
+    ) -> Result[None, ValidationErrors]:
+        """Renumber rows in a section.
+        
+        Args:
+            section_name: Name of section
+            old_rows: List of old row numbers to renumber (in order)
+            new_start_row: Starting row number for new numbering
+            add_prefix: If True, add '#' prefix to all new row numbers
+            
+        Returns:
+            Result.success() on success, validation errors on failure
+        """
+        self.clear_validation_errors()
+        
+        # Validation
+        if not section_name or not section_name.strip():
+            self.validate(False, "Section name cannot be empty")
+        elif section_name not in self.seating_plan.sections:
+            self.validate(False, f"Section '{section_name}' not found")
+        elif not old_rows:
+            self.validate(False, "At least one row must be specified")
+        elif not new_start_row or not new_start_row.strip():
+            self.validate(False, "Starting row number cannot be empty")
+        
+        if self.has_validation_errors():
+            return Result.failure(self.get_validation_errors())
+        
+        try:
+            section = self.seating_plan.sections[section_name]
+            cmd = RenumberRowsCommand(section, old_rows, new_start_row, add_prefix)
+            self.command_handler.execute(cmd)
+            return Result.success(None)
+        except Exception as e:
+            errors = ValidationErrors()
+            errors.add(f"Failed to renumber rows: {str(e)}")
+            return Result.failure(errors)
