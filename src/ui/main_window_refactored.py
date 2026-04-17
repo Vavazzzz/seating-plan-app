@@ -24,6 +24,7 @@ from ..infrastructure.import_export import (
 )
 from ..infrastructure.persistence import JSONRepository
 from .widgets import SectionsPanel
+from .section_view import SectionView
 from .dialogs import FileDialog
 
 
@@ -73,10 +74,16 @@ class RefactoredMainWindow(QMainWindow):
         central = QWidget()
         layout = QHBoxLayout()
         
-        # Sections panel
+        # Sections panel (left)
         self.sections_panel = SectionsPanel(self.section_service, self)
         self.sections_panel.section_changed.connect(self._on_sections_changed)
+        self.sections_panel.section_selected.connect(self._on_section_selected)
         layout.addWidget(self.sections_panel, 1)
+        
+        # Section view (right) - shows seat grid
+        self.section_view = SectionView(self)
+        self.section_view.sectionModified.connect(self._refresh_ui)
+        layout.addWidget(self.section_view, 2)
         
         central.setLayout(layout)
         self.setCentralWidget(central)
@@ -157,6 +164,12 @@ class RefactoredMainWindow(QMainWindow):
         self.status_label.setText(
             f"{info['sections']} sections, {info['total_seats']} seats"
         )
+        
+        # Re-display currently selected section
+        selected = self.sections_panel.get_selected_section()
+        if selected and selected in self.seating_plan.sections:
+            section = self.seating_plan.sections[selected]
+            self.section_view.load_section(section)
     
     # File operations
     
@@ -270,3 +283,21 @@ class RefactoredMainWindow(QMainWindow):
     def _on_sections_changed(self) -> None:
         """Handle sections change."""
         self._refresh_ui()
+    
+    def _on_section_selected(self, section_name: str) -> None:
+        """Handle section selection - display in SectionView."""
+        if section_name in self.seating_plan.sections:
+            section = self.seating_plan.sections[section_name]
+            self.section_view.load_section(section)
+            self.status_label.setText(f"Section: {section_name}")
+
+
+def main():
+    """Application entry point."""
+    import sys
+    from PyQt6.QtWidgets import QApplication
+    
+    app = QApplication(sys.argv)
+    window = RefactoredMainWindow()
+    window.show()
+    sys.exit(app.exec())

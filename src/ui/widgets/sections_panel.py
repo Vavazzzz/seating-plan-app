@@ -88,6 +88,15 @@ class SectionsPanel(BasePanel):
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.sections_table.setItem(row, 0, item)
     
+    def get_selected_section(self) -> Optional[str]:
+        """Get the currently selected section name."""
+        index = self.sections_table.currentRow()
+        if index >= 0:
+            item = self.sections_table.item(index, 0)
+            if item:
+                return item.text()
+        return None
+    
     def _on_selection_changed(self) -> None:
         """Handle section selection change."""
         index = self.sections_table.currentRow()

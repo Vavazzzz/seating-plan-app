@@ -54,7 +54,7 @@ class ExcelImporter(Importer):
             # Load workbook
             wb = load_workbook(filename=str(file_path_obj), read_only=True)
             ws = wb.active
-            
+            print(DEBUG := f"Loaded workbook: {file_path}, active sheet: {ws.title if ws else 'None'}")
             if not ws:
                 raise SeatingPlanException(
                     "No active worksheet in Excel file",
@@ -85,6 +85,7 @@ class ExcelImporter(Importer):
                 try:
                     section_name = row[header_indices["section"]].value
                     row_identifier = row[header_indices["rows"]].value
+                    splitted_row_identifier = str(row_identifier).split(",") if row_identifier else []
                     seats_str = row[header_indices["seats"]].value
                     type_value = row[header_indices["type"]].value
                     
@@ -106,11 +107,12 @@ class ExcelImporter(Importer):
                             for s in str(seats_str).split(",") 
                             if s.strip()
                         ]
-                        for seat_label in seat_labels:
-                            seating_plan.sections[section_name].add_seat(
-                                str(row_identifier), 
-                                seat_label
-                            )
+                        for row_id in splitted_row_identifier:
+                            for seat_label in seat_labels:
+                                seating_plan.sections[section_name].add_seat(
+                                    str(row_id), 
+                                    seat_label
+                                )
                 
                 except (ValueError, IndexError) as e:
                     raise SeatingPlanException(
