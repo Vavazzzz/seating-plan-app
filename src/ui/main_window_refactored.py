@@ -82,6 +82,7 @@ class RefactoredMainWindow(QMainWindow):
         
         # Section view (right) - shows seat grid
         self.section_view = SectionView(self)
+        self.section_view.set_seat_service(self.seat_service)
         self.section_view.sectionModified.connect(self._refresh_ui)
         layout.addWidget(self.section_view, 2)
         

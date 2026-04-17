@@ -124,6 +124,13 @@ class SectionView(QWidget):
 
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
+        
+        # Service reference for undo/redo support
+        self.seat_service = None
+
+    def set_seat_service(self, seat_service):
+        """Set the seat service for operations to go through command handler."""
+        self.seat_service = seat_service
 
     # ---------- Overlay positioning ----------
     def eventFilter(self, obj, event):

@@ -29,26 +29,34 @@ class SectionsPanel(BasePanel):
     def __init__(self, section_service: "SectionService", parent=None):
         super().__init__(parent)
         self.section_service = section_service
+        # Track checkbox states: {section_name: bool}
+        self.section_checks: dict[str, bool] = {}
+        self._suppress_checkbox_signals = False
         self._init_ui()
     
     def _init_ui(self) -> None:
         """Initialize the UI."""
         layout = QVBoxLayout()
         
-        # Sections table
+        # Sections table with 3 columns: Select (checkbox), Section name, Seats
         self.sections_table = QTableWidget()
-        self.sections_table.setColumnCount(1)
-        self.sections_table.setHorizontalHeaderLabels(["Sections"])
+        self.sections_table.setColumnCount(3)
+        self.sections_table.setHorizontalHeaderLabels(["Select", "Section", "Seats"])
         self.sections_table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.Stretch
+            0, QHeaderView.ResizeMode.ResizeToContents
         )
-        self.sections_table.setSelectionMode(
-            QAbstractItemView.SelectionMode.SingleSelection
+        self.sections_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
         )
-        self.sections_table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows
+        self.sections_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.sections_table.verticalHeader().setVisible(False)
+        self.sections_table.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers
         )
         self.sections_table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.sections_table.itemChanged.connect(self._on_checkbox_changed)
         layout.addWidget(self.sections_table)
         
         # Buttons
@@ -81,29 +89,96 @@ class SectionsPanel(BasePanel):
     def refresh(self) -> None:
         """Refresh the sections table."""
         sections = self.section_service.get_section_names()
+        seating_plan = self.section_service.seating_plan
         
         self.sections_table.setRowCount(len(sections))
-        for row, section_name in enumerate(sections):
-            item = QTableWidgetItem(section_name)
-            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.sections_table.setItem(row, 0, item)
+        
+        # Preserve previous checkbox states
+        prev_checks = dict(self.section_checks)
+        self.section_checks = {}
+        
+        self._suppress_checkbox_signals = True
+        try:
+            for row, section_name in enumerate(sections):
+                # Column 0: Checkbox
+                check_item = QTableWidgetItem()
+                check_item.setFlags(check_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                checked = Qt.CheckState.Checked if prev_checks.get(section_name, False) else Qt.CheckState.Unchecked
+                check_item.setCheckState(checked)
+                self.sections_table.setItem(row, 0, check_item)
+                
+                # Column 1: Section name
+                name_item = QTableWidgetItem(section_name)
+                name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.sections_table.setItem(row, 1, name_item)
+                
+                # Column 2: Seat count
+                section = seating_plan.sections[section_name]
+                seat_count = len(section.seats) if section.seats else 0
+                count_item = QTableWidgetItem(str(seat_count))
+                count_item.setFlags(count_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.sections_table.setItem(row, 2, count_item)
+                
+                # Update checkbox tracking
+                self.section_checks[section_name] = (checked == Qt.CheckState.Checked)
+        finally:
+            self._suppress_checkbox_signals = False
     
     def get_selected_section(self) -> Optional[str]:
-        """Get the currently selected section name."""
+        """Get the currently selected section name for display."""
         index = self.sections_table.currentRow()
         if index >= 0:
-            item = self.sections_table.item(index, 0)
+            item = self.sections_table.item(index, 1)  # Column 1 is section name
             if item:
                 return item.text()
         return None
     
+    def get_checked_sections(self) -> list[str]:
+        """Get all checked section names for multi-select operations."""
+        return [name for name, checked in self.section_checks.items() if checked]
+    
+    def set_checked_sections(self, section_names: list[str]) -> None:
+        """Set which sections should be checked."""
+        self._suppress_checkbox_signals = True
+        try:
+            for row in range(self.sections_table.rowCount()):
+                item = self.sections_table.item(row, 1)
+                if item:
+                    section_name = item.text()
+                    checkbox_item = self.sections_table.item(row, 0)
+                    if checkbox_item:
+                        is_checked = section_name in section_names
+                        checkbox_item.setCheckState(
+                            Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked
+                        )
+                        self.section_checks[section_name] = is_checked
+        finally:
+            self._suppress_checkbox_signals = False
+    
+    def clear_checked(self) -> None:
+        """Uncheck all sections."""
+        self.set_checked_sections([])
+    
+    def _on_checkbox_changed(self, item: QTableWidgetItem) -> None:
+        """Handle checkbox state change in column 0."""
+        if self._suppress_checkbox_signals or item.column() != 0:
+            return
+        
+        row = self.sections_table.row(item)
+        if row < 0:
+            return
+        
+        section_item = self.sections_table.item(row, 1)
+        if section_item:
+            section_name = section_item.text()
+            is_checked = item.checkState() == Qt.CheckState.Checked
+            self.section_checks[section_name] = is_checked
+    
     def _on_selection_changed(self) -> None:
-        """Handle section selection change."""
-        index = self.sections_table.currentRow()
-        if index >= 0:
-            item = self.sections_table.item(index, 0)
-            if item:
-                self.section_selected.emit(item.text())
+        """Handle section selection change - display selected section."""
+        section_name = self.get_selected_section()
+        if section_name:
+            self.section_selected.emit(section_name)
     
     def _add_section(self) -> None:
         """Add a new section."""
@@ -121,21 +196,46 @@ class SectionsPanel(BasePanel):
                 self.show_error("Error", str(result.error))
     
     def _delete_section(self) -> None:
-        """Delete the selected section."""
-        index = self.sections_table.currentRow()
-        if index < 0:
+        """Delete selected section(s) - supports multi-delete via checkboxes."""
+        # Get checked sections for multi-delete
+        checked = self.get_checked_sections()
+        # Get selected section for single-delete fallback
+        selected = self.get_selected_section()
+        
+        # Determine which sections to delete
+        to_delete = checked if checked else ([selected] if selected else [])
+        
+        if not to_delete:
             self.show_warning("Warning", "No section selected")
             return
         
-        name = self.sections_table.item(index, 0).text()
-        if self.confirm("Confirm Delete", f"Delete section '{name}'?"):
-            result = self.section_service.delete_section(name)
-            if result.is_success():
-                self.refresh()
-                self.section_changed.emit()
-                self.show_success(f"Section '{name}' deleted")
-            else:
-                self.show_error("Error", str(result.error))
+        # Confirm deletion
+        if len(to_delete) > 1:
+            msg = f"Delete {len(to_delete)} sections?"
+        else:
+            msg = f"Delete section '{to_delete[0]}'?"
+        
+        if not self.confirm("Confirm Delete", msg):
+            return
+        
+        # Delete all selected sections
+        failed = []
+        for section_name in to_delete:
+            result = self.section_service.delete_section(section_name)
+            if not result.is_success():
+                failed.append((section_name, str(result.error)))
+        
+        # Update UI
+        self.refresh()
+        self.section_changed.emit()
+        
+        # Provide feedback
+        if failed:
+            error_msg = "\n".join([f"{name}: {err}" for name, err in failed])
+            self.show_error("Some deletions failed", error_msg)
+        else:
+            msg = f"Deleted {len(to_delete)} section(s)"
+            self.show_success(msg)
     
     def _rename_section(self) -> None:
         """Rename the selected section."""
@@ -164,7 +264,13 @@ class SectionsPanel(BasePanel):
             self.show_warning("Warning", "No section selected")
             return
         
-        source_name = self.sections_table.item(index, 0).text()
+        # Column 1 is the section name (column 0 is checkbox)
+        source_item = self.sections_table.item(index, 1)
+        if not source_item:
+            self.show_warning("Warning", "No section selected")
+            return
+        
+        source_name = source_item.text()
         dialog = CloneSectionDialog(source_name, self)
         if dialog.exec() == dialog.Accepted:
             clone_name = dialog.get_clone_name()
@@ -177,15 +283,36 @@ class SectionsPanel(BasePanel):
                 self.show_error("Error", str(result.error))
     
     def _merge_sections(self) -> None:
-        """Merge sections."""
-        sections = self.section_service.get_section_names()
-        if len(sections) < 2:
-            self.show_warning("Warning", "Need at least 2 sections to merge")
+        """Merge checked sections into one target section."""
+        # Get checked sections for multi-merge
+        checked = self.get_checked_sections()
+        
+        if len(checked) < 2:
+            self.show_warning("Warning", "Select at least 2 sections to merge")
             return
         
+        sections = self.section_service.get_section_names()
         dialog = MergeSectionsDialog(sections, self)
         if dialog.exec() == dialog.Accepted:
             target = dialog.get_target()
-            # Note: In a real implementation, we'd select source sections from a list
-            # For now, we'll show a reminder
-            self.show_warning("Info", "Select source sections from dialog to merge into " + target)
+            delete_sources = dialog.delete_sources_checked()
+            
+            # Validate: can't merge a section into itself
+            if target in checked and len(checked) == 1:
+                self.show_warning("Warning", "Cannot merge section into itself")
+                return
+            
+            # Remove target from sources if present
+            sources = [s for s in checked if s != target]
+            if not sources:
+                self.show_warning("Warning", "At least one section other than target must be selected")
+                return
+            
+            # Perform merge
+            result = self.section_service.merge_sections(sources, target, delete_sources)
+            if result.is_success():
+                self.refresh()
+                self.section_changed.emit()
+                self.show_success(f"Merged {len(sources)} sections into '{target}'")
+            else:
+                self.show_error("Error", str(result.error))
