@@ -239,12 +239,11 @@ class SectionsPanel(BasePanel):
     
     def _rename_section(self) -> None:
         """Rename the selected section."""
-        index = self.sections_table.currentRow()
-        if index < 0:
+        old_name = self.get_selected_section()
+        if not old_name:
             self.show_warning("Warning", "No section selected")
             return
-        
-        old_name = self.sections_table.item(index, 0).text()
+
         dialog = RenameSectionDialog(old_name, self)
         if dialog.exec() == dialog.accepted:
             new_name = dialog.get_value()
