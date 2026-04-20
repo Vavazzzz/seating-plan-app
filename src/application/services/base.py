@@ -1,6 +1,6 @@
 """Base service class for domain operations coordination."""
 
-from typing import TYPE_CHECKING, Callable, Optional, List
+from typing import TYPE_CHECKING, Optional, List
 from ..result import Result, ValidationErrors
 from ..handlers.command_handler import CommandHandler
 
@@ -65,10 +65,3 @@ class BaseService:
             return Result.failure(self.get_validation_errors())
         return Result.success(None)
     
-    def add_error_callback(self, callback: Callable[[str], None]) -> None:
-        """Add a callback for command errors.
-        
-        Args:
-            callback: Function to call with error message
-        """
-        self.command_handler.on_command_executed = callback
