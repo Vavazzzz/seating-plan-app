@@ -182,8 +182,8 @@ self.section_service.rename_section(old, new)
 ## Tests
 
 - New tests go in `tests/unit/domain/` or `tests/unit/infrastructure/` — never at the project root
-- Imports must be fully qualified: `from src.domain.models.seating_plan import SeatingPlan`
-  — unqualified `from domain.models...` imports will fail without path hacks
+- Imports are relative to `src/`: `from domain.models.seating_plan import SeatingPlan`
+  — do not use `from src.domain.models...` (pytest adds `src/` to `sys.path` via `pythonpath = ["src"]` in `pyproject.toml`)
 - No PyQt6 in tests
 - When modifying logic in `src/domain/models/`, `src/application/commands/`, or `src/application/services/`, add or update a test in the corresponding `tests/unit/` path
 
