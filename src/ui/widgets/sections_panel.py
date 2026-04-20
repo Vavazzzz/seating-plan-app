@@ -183,7 +183,7 @@ class SectionsPanel(BasePanel):
     def _add_section(self) -> None:
         """Add a new section."""
         dialog = AddSectionDialog(self)
-        if dialog.exec() == dialog.Accepted:
+        if dialog.exec() == dialog.accepted:
             name = dialog.get_value()
             is_ga = dialog.is_checked()
             
@@ -246,7 +246,7 @@ class SectionsPanel(BasePanel):
         
         old_name = self.sections_table.item(index, 0).text()
         dialog = RenameSectionDialog(old_name, self)
-        if dialog.exec() == dialog.Accepted:
+        if dialog.exec() == dialog.accepted:
             new_name = dialog.get_value()
             if old_name != new_name:
                 result = self.section_service.rename_section(old_name, new_name)
@@ -272,7 +272,7 @@ class SectionsPanel(BasePanel):
         
         source_name = source_item.text()
         dialog = CloneSectionDialog(source_name, self)
-        if dialog.exec() == dialog.Accepted:
+        if dialog.exec() == dialog.accepted:
             clone_name = dialog.get_clone_name()
             result = self.section_service.clone_section(source_name, clone_name)
             if result.is_success():
@@ -293,7 +293,7 @@ class SectionsPanel(BasePanel):
         
         sections = self.section_service.get_section_names()
         dialog = MergeSectionsDialog(sections, self)
-        if dialog.exec() == dialog.Accepted:
+        if dialog.exec() == dialog.accepted:
             target = dialog.get_target()
             delete_sources = dialog.delete_sources_checked()
             

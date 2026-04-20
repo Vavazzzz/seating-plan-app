@@ -234,7 +234,7 @@ class RefactoredMainWindow(QMainWindow):
         path = FileDialog.get_open_path(
             self,
             "Import Seating Plan",
-            "All Formats (*.json *.xlsx *.avail);;JSON (*.json);;Excel (*.xlsx);;Avail (*.avail)"
+            "All Formats (*.json *.xlsx *.xml);;JSON (*.json);;Excel (*.xlsx);;Avail (*.xml)"
         )
         
         if path:
