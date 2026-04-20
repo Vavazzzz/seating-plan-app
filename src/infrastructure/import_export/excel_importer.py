@@ -54,7 +54,6 @@ class ExcelImporter(Importer):
             # Load workbook
             wb = load_workbook(filename=str(file_path_obj), read_only=True)
             ws = wb.active
-            print(DEBUG := f"Loaded workbook: {file_path}, active sheet: {ws.title if ws else 'None'}")
             if not ws:
                 raise SeatingPlanException(
                     "No active worksheet in Excel file",
