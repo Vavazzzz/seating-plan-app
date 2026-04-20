@@ -88,7 +88,7 @@ class SectionsPanel(BasePanel):
     
     def refresh(self) -> None:
         """Refresh the sections table."""
-        sections = self.section_service.get_section_names()
+        sections = sorted(self.section_service.get_section_names())
         seating_plan = self.section_service.seating_plan
         
         self.sections_table.setRowCount(len(sections))
@@ -290,7 +290,7 @@ class SectionsPanel(BasePanel):
             self.show_warning("Warning", "Select at least 2 sections to merge")
             return
         
-        sections = self.section_service.get_section_names()
+        sections = sorted(self.section_service.get_section_names())
         dialog = MergeSectionsDialog(sections, self)
         if dialog.exec() == dialog.accepted:
             target = dialog.get_target()

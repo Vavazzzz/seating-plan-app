@@ -257,13 +257,13 @@ class SectionService(BaseService):
             errors.add(f"Failed to merge sections: {str(e)}")
             return Result.failure(errors)
     
-    def get_section_names(self) -> List[str]:
+    def get_section_names(self) -> list[str]:
         """Get all section names in the seating plan.
-        
+
         Returns:
-            List of section names, sorted alphabetically
+            List of section names in insertion order
         """
-        return sorted(self.seating_plan.sections.keys())
+        return list(self.seating_plan.sections.keys())
     
     def section_exists(self, name: str) -> bool:
         """Check if a section exists.
