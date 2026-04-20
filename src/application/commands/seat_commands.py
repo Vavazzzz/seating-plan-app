@@ -2,8 +2,8 @@
 
 from typing import List
 
-from ...domain.models.section import Section
-from ...domain.exceptions import ValidationError
+from domain.models.section import Section
+from domain.exceptions import ValidationError
 from .base import Command
 
 
@@ -309,7 +309,7 @@ class RenumberRowsCommand(Command):
         new_rows = []
         try:
             # Try to generate what the new rows should be
-            from ...infrastructure.utils.alphanum_handler import alphanum_range
+            from infrastructure.utils.alphanum_handler import alphanum_range
             start = self.new_start_row
             if self.add_prefix:
                 start = start.lstrip('#')

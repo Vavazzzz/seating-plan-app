@@ -8,21 +8,21 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
 
-from ..domain.models.seating_plan import SeatingPlan
-from ..application.handlers import CommandHandler
-from ..application.services import (
+from domain.models.seating_plan import SeatingPlan
+from application.handlers import CommandHandler
+from application.services import (
     SeatingPlanService,
     SectionService,
     SeatService,
 )
-from ..infrastructure.import_export import (
+from infrastructure.import_export import (
     JSONImporter,
     ExcelImporter,
     AvailImporter,
     JSONExporter,
     ExcelExporter,
 )
-from ..infrastructure.persistence import JSONRepository
+from infrastructure.persistence import JSONRepository
 from .widgets import SectionsPanel
 from .section_view import SectionView
 from .dialogs import FileDialog

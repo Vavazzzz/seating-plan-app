@@ -11,8 +11,8 @@ from ..use_cases import (
     SaveSeatingPlanUseCase,
     LoadSeatingPlanUseCase,
 )
-from ...domain.models.seating_plan import SeatingPlan
-from ...domain.exceptions import SeatingPlanException
+from domain.models.seating_plan import SeatingPlan
+from domain.exceptions import SeatingPlanException
 
 
 class SeatingPlanService(BaseService):

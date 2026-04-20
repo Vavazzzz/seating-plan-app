@@ -16,7 +16,7 @@ from ..dialogs import (
 )
 
 if TYPE_CHECKING:
-    from ...application.services import SectionService
+    from application.services import SectionService
 
 
 class SectionsPanel(BasePanel):

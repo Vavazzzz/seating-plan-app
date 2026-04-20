@@ -4,11 +4,11 @@ from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ...domain.models.seating_plan import SeatingPlan
+    from domain.models.seating_plan import SeatingPlan
 
 from openpyxl import load_workbook
 
-from ...domain.exceptions import SeatingPlanException
+from domain.exceptions import SeatingPlanException
 from .abstract import Importer
 
 
@@ -41,7 +41,7 @@ class ExcelImporter(Importer):
             SeatingPlanException: If import fails
         """
         try:
-            from ...domain.models.seating_plan import SeatingPlan
+            from domain.models.seating_plan import SeatingPlan
             
             file_path_obj = Path(file_path)
             

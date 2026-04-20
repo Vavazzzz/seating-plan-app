@@ -12,7 +12,7 @@ from ..commands.seat_commands import (
     AddRowsCommand,
     RenumberRowsCommand,
 )
-from ...domain.models.section import Section
+from domain.models.section import Section
 
 
 class SeatService(BaseService):

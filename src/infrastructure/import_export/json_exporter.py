@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ...domain.models.seating_plan import SeatingPlan
+    from domain.models.seating_plan import SeatingPlan
 
-from ...domain.exceptions import SeatingPlanException
+from domain.exceptions import SeatingPlanException
 from .abstract import Exporter
 
 

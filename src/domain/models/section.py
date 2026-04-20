@@ -2,7 +2,7 @@ from typing import Dict, Union, List
 from collections import defaultdict
 import copy
 from .seat import Seat
-from ...infrastructure.utils.alphanum_handler import alphanum_range, to_index, from_index
+from infrastructure.utils.alphanum_handler import alphanum_range, to_index, from_index
 
 class Section:
     """Represents a section containing multiple seats."""

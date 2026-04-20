@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ...domain.models.seating_plan import SeatingPlan
+    from domain.models.seating_plan import SeatingPlan
 
 from openpyxl import Workbook
 
-from ...domain.exceptions import SeatingPlanException
-from ...infrastructure.utils.alphanum_handler import alphanum_sort_key
+from domain.exceptions import SeatingPlanException
+from infrastructure.utils.alphanum_handler import alphanum_sort_key
 from .abstract import Exporter
 
 

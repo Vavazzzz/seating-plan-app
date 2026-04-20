@@ -3,9 +3,9 @@
 import copy
 from typing import List, Optional
 
-from ...domain.models.seating_plan import SeatingPlan
-from ...domain.models.section import Section
-from ...domain.exceptions import MergeConflictError, ValidationError
+from domain.models.seating_plan import SeatingPlan
+from domain.models.section import Section
+from domain.exceptions import MergeConflictError, ValidationError
 from .base import Command
 
 

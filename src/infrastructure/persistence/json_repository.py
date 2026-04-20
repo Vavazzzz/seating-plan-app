@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from ...domain.models.seating_plan import SeatingPlan
-from ...domain.exceptions import SeatingPlanException
+from domain.models.seating_plan import SeatingPlan
+from domain.exceptions import SeatingPlanException
 from ..import_export import JSONImporter, JSONExporter
 from .abstract import SeatingPlanRepository
 

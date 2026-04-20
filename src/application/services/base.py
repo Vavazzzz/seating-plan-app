@@ -5,7 +5,7 @@ from ..result import Result, ValidationErrors
 from ..handlers.command_handler import CommandHandler
 
 if TYPE_CHECKING:
-    from ...domain.models.seating_plan import SeatingPlan
+    from domain.models.seating_plan import SeatingPlan
 
 
 class BaseService:

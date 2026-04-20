@@ -11,7 +11,7 @@ from ..commands.section_commands import (
     CloneSectionManyCommand,
     MergeSectionsCommand,
 )
-from ...domain.exceptions import (
+from domain.exceptions import (
     DuplicateNameError,
     SectionNotFoundError,
     MergeConflictError,

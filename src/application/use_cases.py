@@ -3,10 +3,10 @@
 from pathlib import Path
 from typing import List, Optional
 
-from ..infrastructure.import_export import Importer, Exporter
-from ..infrastructure.persistence import SeatingPlanRepository
-from ..domain.models.seating_plan import SeatingPlan
-from ..domain.exceptions import SeatingPlanException
+from infrastructure.import_export import Importer, Exporter
+from infrastructure.persistence import SeatingPlanRepository
+from domain.models.seating_plan import SeatingPlan
+from domain.exceptions import SeatingPlanException
 
 
 class ImportSeatingPlanUseCase:

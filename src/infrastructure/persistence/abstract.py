@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from ...domain.models.seating_plan import SeatingPlan
+from domain.models.seating_plan import SeatingPlan
 
 
 class SeatingPlanRepository(ABC):
