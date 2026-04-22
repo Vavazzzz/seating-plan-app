@@ -525,8 +525,10 @@ class SectionView(QWidget):
         if not selected_rows:
             return
         
+        sorted_rows = sorted(selected_rows, key=alphanum_sort_key)
+
         # Show dialog
-        dialog = RenumberRowsDialog(selected_rows, self)
+        dialog = RenumberRowsDialog(sorted_rows, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         
@@ -543,7 +545,7 @@ class SectionView(QWidget):
         
         result = self.seat_service.renumber_rows(
             self.section.name,
-            selected_rows,
+            sorted_rows,
             new_start,
             add_prefix=is_unnumbered
         )
