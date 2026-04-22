@@ -2,7 +2,7 @@
 
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton,
-    QHeaderView, QAbstractItemView
+    QHeaderView, QAbstractItemView, QDialog
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from typing import TYPE_CHECKING, Optional
@@ -62,9 +62,9 @@ class SectionsPanel(BasePanel):
         # Buttons
         button_layout = QHBoxLayout()
         
-        add_btn = QPushButton("Add Section")
-        add_btn.clicked.connect(self._add_section)
-        button_layout.addWidget(add_btn)
+        addsec_btn = QPushButton("Add Section")
+        addsec_btn.clicked.connect(self._add_section)
+        button_layout.addWidget(addsec_btn)
         
         rename_btn = QPushButton("Rename")
         rename_btn.clicked.connect(self._rename_section)
@@ -183,7 +183,7 @@ class SectionsPanel(BasePanel):
     def _add_section(self) -> None:
         """Add a new section."""
         dialog = AddSectionDialog(self)
-        if dialog.exec() == dialog.accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             name = dialog.get_value()
             is_ga = dialog.is_checked()
             
@@ -245,7 +245,7 @@ class SectionsPanel(BasePanel):
             return
 
         dialog = RenameSectionDialog(old_name, self)
-        if dialog.exec() == dialog.accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             new_name = dialog.get_value()
             if old_name != new_name:
                 result = self.section_service.rename_section(old_name, new_name)
@@ -271,7 +271,7 @@ class SectionsPanel(BasePanel):
         
         source_name = source_item.text()
         dialog = CloneSectionDialog(source_name, self)
-        if dialog.exec() == dialog.accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             clone_name = dialog.get_clone_name()
             result = self.section_service.clone_section(source_name, clone_name)
             if result.is_success():
@@ -292,7 +292,7 @@ class SectionsPanel(BasePanel):
         
         sections = sorted(self.section_service.get_section_names())
         dialog = MergeSectionsDialog(sections, self)
-        if dialog.exec() == dialog.accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             target = dialog.get_target()
             delete_sources = dialog.delete_sources_checked()
             
