@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
     QStatusBar, QLabel, QMessageBox, QDialog
 )
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtCore import Qt
 
 from domain.models.seating_plan import SeatingPlan
@@ -97,45 +97,54 @@ class RefactoredMainWindow(QMainWindow):
         file_menu = menubar.addMenu("File")
         
         new_action = QAction("New", self)
+        new_action.setShortcut(QKeySequence.StandardKey.New)
         new_action.triggered.connect(self._new_plan)
         file_menu.addAction(new_action)
-        
+
         open_action = QAction("Open...", self)
+        open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self._open_plan)
         file_menu.addAction(open_action)
-        
+
         save_action = QAction("Save", self)
+        save_action.setShortcut(QKeySequence.StandardKey.Save)
         save_action.triggered.connect(self._save_plan)
         file_menu.addAction(save_action)
-        
+
         save_as_action = QAction("Save As...", self)
+        save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
         save_as_action.triggered.connect(self._save_plan_as)
         file_menu.addAction(save_as_action)
-        
+
         file_menu.addSeparator()
-        
+
         export_action = QAction("Export...", self)
+        export_action.setShortcut(QKeySequence("Ctrl+E"))
         export_action.triggered.connect(self._export_plan)
         file_menu.addAction(export_action)
-        
+
         import_action = QAction("Import...", self)
+        import_action.setShortcut(QKeySequence("Ctrl+I"))
         import_action.triggered.connect(self._import_plan)
         file_menu.addAction(import_action)
-        
+
         file_menu.addSeparator()
-        
+
         exit_action = QAction("Exit", self)
+        exit_action.setShortcut(QKeySequence.StandardKey.Quit)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
-        
+
         # Edit menu
         edit_menu = menubar.addMenu("Edit")
-        
+
         undo_action = QAction("Undo", self)
+        undo_action.setShortcut(QKeySequence.StandardKey.Undo)
         undo_action.triggered.connect(self._undo)
         edit_menu.addAction(undo_action)
-        
+
         redo_action = QAction("Redo", self)
+        redo_action.setShortcut(QKeySequence.StandardKey.Redo)
         redo_action.triggered.connect(self._redo)
         edit_menu.addAction(redo_action)
     

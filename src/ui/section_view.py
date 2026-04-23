@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QMenu, QInputDialog, QMessageBox, QDialog, QTextEdit, QGroupBox, QLineEdit,
     QDialogButtonBox, QComboBox, QCheckBox
 )
-from PyQt6.QtGui import QBrush, QPen, QPainter
+from PyQt6.QtGui import QBrush, QPen, QPainter, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QPoint
 from domain.models.section import Section
 from infrastructure.utils.alphanum_handler import alphanum_range, alphanum_sort_key
@@ -124,9 +124,14 @@ class SectionView(QWidget):
 
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
-        
+
         # Service reference for undo/redo support
         self.seat_service = None
+
+        # Keyboard shortcuts
+        QShortcut(QKeySequence.StandardKey.SelectAll, self).activated.connect(self.select_all_seats)
+        QShortcut(QKeySequence("Escape"), self).activated.connect(self.deselect_all_seats)
+        QShortcut(QKeySequence("Ctrl+0"), self).activated.connect(lambda: self.zoom_slider.setValue(100))
 
     def set_seat_service(self, seat_service):
         """Set the seat service for operations to go through command handler."""
@@ -572,7 +577,7 @@ class SectionView(QWidget):
                 it.update_visual()
         self.selectionChanged.emit(len(selected))
 
-    def select_all_seats(self): #TODO: hook up to Ctrl+A
+    def select_all_seats(self):
         for it in self.scene.items():
             if isinstance(it, SeatItem):
                 it.setSelected(True)
