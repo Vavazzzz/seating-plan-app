@@ -78,6 +78,7 @@ class RefactoredMainWindow(QMainWindow):
         self.sections_panel = SectionsPanel(self.section_service, self)
         self.sections_panel.section_changed.connect(self._on_sections_changed)
         self.sections_panel.section_selected.connect(self._on_section_selected)
+        self.sections_panel.section_added.connect(self._on_section_added)
         layout.addWidget(self.sections_panel, 1)
         
         # Section view (right) - shows seat grid
@@ -307,6 +308,13 @@ class RefactoredMainWindow(QMainWindow):
             section = self.seating_plan.sections[section_name]
             self.section_view.load_section(section)
             self.status_label.setText(f"Section: {section_name}")
+
+    def _on_section_added(self, section_name: str) -> None:
+        """Select the new section and immediately open the row range dialog."""
+        self.sections_panel.select_section(section_name)
+        if section_name in self.seating_plan.sections:
+            self.section_view.load_section(self.seating_plan.sections[section_name])
+        self.section_view.add_row_range_dialog()
 
 
 def main():

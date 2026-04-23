@@ -25,6 +25,7 @@ class SectionsPanel(BasePanel):
     # Signals
     section_selected = pyqtSignal(str)  # Emits section name
     section_changed = pyqtSignal()  # Emits when sections list changes
+    section_added = pyqtSignal(str)  # Emits name of newly created section
     
     def __init__(self, section_service: "SectionService", parent=None):
         super().__init__(parent)
@@ -133,6 +134,14 @@ class SectionsPanel(BasePanel):
                 return item.text()
         return None
     
+    def select_section(self, name: str) -> None:
+        """Select a section by name in the table."""
+        for row in range(self.sections_table.rowCount()):
+            item = self.sections_table.item(row, 1)
+            if item and item.text() == name:
+                self.sections_table.setCurrentCell(row, 1)
+                break
+
     def get_checked_sections(self) -> list[str]:
         """Get all checked section names for multi-select operations."""
         return [name for name, checked in self.section_checks.items() if checked]
@@ -191,6 +200,7 @@ class SectionsPanel(BasePanel):
             if result.is_success():
                 self.refresh()
                 self.section_changed.emit()
+                self.section_added.emit(name)
                 self.show_success(f"Section '{name}' added")
             else:
                 self.show_error("Error", str(result.error))
