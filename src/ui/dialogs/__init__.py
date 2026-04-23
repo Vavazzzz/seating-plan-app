@@ -10,6 +10,7 @@ from .section_dialogs import (
 from .seat_dialogs import (
     AddSeatDialog,
     AddSeatRangeDialog,
+    NewPlanDialog,
     FileDialog,
 )
 
@@ -22,5 +23,6 @@ __all__ = [
     "CloneSectionDialog",
     "AddSeatDialog",
     "AddSeatRangeDialog",
+    "NewPlanDialog",
     "FileDialog",
 ]

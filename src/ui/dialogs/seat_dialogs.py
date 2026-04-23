@@ -23,6 +23,18 @@ class AddSeatDialog(InputDialog):
         return None
 
 
+class NewPlanDialog(InputDialog):
+    """Dialog to create a new seating plan with custom name."""
+    
+    def __init__(self, parent=None):
+        super().__init__(
+            "New Seating Plan",
+            "Plan name:",
+            parent,
+            "New Plan"
+        )
+
+
 class AddSeatRangeDialog(QDialog):
     """Dialog to add a range of seats."""
     

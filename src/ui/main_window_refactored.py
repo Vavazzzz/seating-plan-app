@@ -3,7 +3,7 @@
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
-    QStatusBar, QLabel, QMessageBox
+    QStatusBar, QLabel, QMessageBox, QDialog
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
@@ -25,7 +25,7 @@ from infrastructure.import_export import (
 from infrastructure.persistence import JSONRepository
 from .widgets import SectionsPanel
 from .section_view import SectionView
-from .dialogs import FileDialog
+from .dialogs import FileDialog, NewPlanDialog
 
 
 class RefactoredMainWindow(QMainWindow):
@@ -176,13 +176,20 @@ class RefactoredMainWindow(QMainWindow):
     
     def _new_plan(self) -> None:
         """Create a new plan."""
-        result = self.plan_service.create_new_plan("New Plan")
-        if result.is_success():
-            self.current_project_path = None
-            self._refresh_ui()
-            self.status_label.setText("New plan created")
-        else:
-            QMessageBox.critical(self, "Error", str(result.error))
+        dialog = NewPlanDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            plan_name = dialog.get_value()
+            if plan_name:  # get_value() strips whitespace
+                result = self.plan_service.create_new_plan(plan_name)
+                if result.is_success():
+                    self.current_project_path = None
+                    self._refresh_ui()
+                    self.status_label.setText("New plan created")
+                else:
+                    QMessageBox.critical(self, "Error", str(result.error))
+            else:
+                QMessageBox.warning(self, "Validation", "Plan name cannot be empty")
+        # If dialog is rejected (Cancel clicked), do nothing
     
     def _open_plan(self) -> None:
         """Open a seating plan file."""
