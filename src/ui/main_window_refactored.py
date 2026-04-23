@@ -177,7 +177,7 @@ class RefactoredMainWindow(QMainWindow):
     def _new_plan(self) -> None:
         """Create a new plan."""
         dialog = NewPlanDialog(self)
-        if dialog.exec() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             plan_name = dialog.get_value()
             if plan_name:  # get_value() strips whitespace
                 result = self.plan_service.create_new_plan(plan_name)
