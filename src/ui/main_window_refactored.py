@@ -161,11 +161,14 @@ class RefactoredMainWindow(QMainWindow):
     
     def _setup_callbacks(self) -> None:
         """Setup service callbacks."""
-        # Error messages to status bar
         def on_error(msg):
             self.status_label.setText(f"Error: {msg}")
-        
+
+        def on_success(msg):
+            self.status_label.setText(msg)
+
         self.sections_panel.set_error_callback(on_error)
+        self.sections_panel.set_success_callback(on_success)
     
     def _refresh_ui(self) -> None:
         """Refresh all UI elements."""
