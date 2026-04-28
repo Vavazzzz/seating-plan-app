@@ -3,6 +3,7 @@
 from typing import List
 
 from domain.models.section import Section
+from domain.models.seating_plan import SeatingPlan
 from domain.exceptions import ValidationError
 from .base import Command
 
@@ -266,6 +267,49 @@ class AddRowsCommand(Command):
         for key in self._added_keys:
             if key in self.section.seats:
                 del self.section.seats[key]
+
+
+class MoveSeatsCommand(Command):
+    """Command to move seats from one section to another atomically."""
+
+    def __init__(
+        self,
+        seating_plan: SeatingPlan,
+        source_name: str,
+        target_name: str,
+        seats: list[tuple[str, str]],
+    ):
+        super().__init__(f"Move {len(seats)} seats from '{source_name}' to '{target_name}'")
+        self.seating_plan = seating_plan
+        self.source_name = source_name
+        self.target_name = target_name
+        self.seats = seats
+        self._moved: list[tuple[str, str]] = []
+        self._skipped: list[tuple[str, str]] = []
+
+    def execute(self) -> None:
+        source = self.seating_plan.sections[self.source_name]
+        target = self.seating_plan.sections[self.target_name]
+        self._moved = []
+        self._skipped = []
+        for row, seat in self.seats:
+            key = f"{row}-{seat}"
+            if key not in source.seats:
+                continue
+            if key in target.seats:
+                self._skipped.append((row, seat))
+                continue
+            target.seats[key] = source.seats.pop(key)
+            self._moved.append((row, seat))
+        self._executed = True
+
+    def undo(self) -> None:
+        source = self.seating_plan.sections[self.source_name]
+        target = self.seating_plan.sections[self.target_name]
+        for row, seat in self._moved:
+            key = f"{row}-{seat}"
+            if key in target.seats:
+                source.seats[key] = target.seats.pop(key)
 
 
 class RenumberRowsCommand(Command):

@@ -225,16 +225,14 @@ class SectionService(BaseService):
         if not source_names:
             self.validate(False, "At least one source section must be provided")
         elif not target_name or not target_name.strip():
-            self.validate(False, "Target section name cannot be empty")
-        elif target_name not in self.seating_plan.sections:
-            self.validate(False, f"Target section '{target_name}' not found")
-        
+            self.validate(False, "New section name cannot be empty")
+        elif target_name in self.seating_plan.sections:
+            self.validate(False, f"Section '{target_name}' already exists")
+
         # Check all source sections exist
         for name in source_names or []:
             if name not in self.seating_plan.sections:
                 self.validate(False, f"Source section '{name}' not found")
-            elif name == target_name and delete_sources:
-                self.validate(False, f"Cannot merge section into itself and delete source")
         
         if self.has_validation_errors():
             return Result.failure(self.get_validation_errors())

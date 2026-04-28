@@ -11,6 +11,7 @@ from ..commands.seat_commands import (
     DeleteSeatsCommand,
     AddRowsCommand,
     RenumberRowsCommand,
+    MoveSeatsCommand,
 )
 from domain.models.section import Section
 
@@ -336,6 +337,53 @@ class SeatService(BaseService):
             errors.add(f"Failed to get rows: {str(e)}")
             return Result.failure(errors)
     
+    def move_seats(
+        self,
+        source_name: str,
+        target_name: str,
+        seats: list[tuple[str, str]],
+    ) -> Result[int, ValidationErrors]:
+        """Move seats from one section to another as a single undoable operation.
+
+        Seats that already exist in the target are skipped (no overwrite).
+
+        Args:
+            source_name: Section to move seats from
+            target_name: Section to move seats into
+            seats: List of (row, seat) tuples to move
+
+        Returns:
+            Result with count of seats actually moved on success
+        """
+        self.clear_validation_errors()
+
+        if not source_name or not source_name.strip():
+            self.validate(False, "Source section name cannot be empty")
+        elif source_name not in self.seating_plan.sections:
+            self.validate(False, f"Source section '{source_name}' not found")
+
+        if not target_name or not target_name.strip():
+            self.validate(False, "Target section name cannot be empty")
+        elif target_name not in self.seating_plan.sections:
+            self.validate(False, f"Target section '{target_name}' not found")
+        elif source_name == target_name:
+            self.validate(False, "Source and target sections must be different")
+
+        if not seats:
+            self.validate(False, "At least one seat must be specified")
+
+        if self.has_validation_errors():
+            return Result.failure(self.get_validation_errors())
+
+        try:
+            cmd = MoveSeatsCommand(self.seating_plan, source_name, target_name, seats)
+            self.command_handler.execute(cmd)
+            return Result.success(len(cmd._moved))
+        except Exception as e:
+            errors = ValidationErrors()
+            errors.add(f"Failed to move seats: {str(e)}")
+            return Result.failure(errors)
+
     def seat_exists(self, section_name: str, row: str, seat: str) -> bool:
         """Check if a specific seat exists.
         

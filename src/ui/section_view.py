@@ -217,71 +217,66 @@ class SectionView(QWidget):
 
     # ---------- Context menu and move seats ----------
     def move_selected_seats_dialog(self):
-        """
-        Show dialog to move selected seats to an existing or new section.
-        Uses the parent (MainWindow) seating_plan to list/create sections.
-        """
-        if not self.section or not self.seat_service or not self.parent() or not hasattr(self.parent(), "seating_plan"):
+        """Move selected seats to an existing or new section."""
+        if not self.section or not self.seat_service:
             return
 
-        mainwindow = self.parent()
+        mainwindow = self.window()
+        if not mainwindow or not hasattr(mainwindow, "seating_plan") or not hasattr(mainwindow, "section_service"):
+            return
+
         current_section_name = self.section.name
-        all_names = [name for name in mainwindow.seating_plan.sections.keys() if name != current_section_name]
+        all_names = [
+            name for name in mainwindow.seating_plan.sections.keys()
+            if name != current_section_name
+        ]
         all_names.append("Create new section...")
 
-        target_item, ok = QInputDialog.getItem(self, "Move Seats", "Select target section:", all_names, editable=False)
+        target_item, ok = QInputDialog.getItem(
+            self, "Move Seats", "Select target section:", all_names, editable=False
+        )
         if not ok or not target_item:
             return
 
         if target_item == "Create new section...":
-            target_name, ok2 = QInputDialog.getText(self, "New Section", "Enter name for new section:")
-            if not ok2 or not target_name:
+            target_name, ok2 = QInputDialog.getText(
+                self, "New Section", "Enter name for new section:"
+            )
+            if not ok2:
                 return
             target_name = target_name.strip()
             if not target_name:
                 return
-            if target_name in mainwindow.seating_plan.sections:
-                QMessageBox.warning(self, "Exists", "Section by that name already exists.")
+            result_create = mainwindow.section_service.add_section(target_name)
+            if not result_create.is_success():
+                QMessageBox.warning(self, "Error", str(result_create.error))
                 return
-            # Create new section via seating plan service
-            mainwindow.seating_plan.add_section(target_name)
             target = target_name
         else:
             target = target_item
 
-        # Collect seats to move
         selected_items = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
         if not selected_items:
             return
 
-        # Prepare list of (row, seat) tuples to move
         seats_to_move = [(item.row, str(item.seat)) for item in selected_items]
-        
-        # Delete from current section via SeatService
-        result_delete = self.seat_service.delete_seats(current_section_name, seats_to_move)
-        if not result_delete.is_success():
-            QMessageBox.warning(self, "Error", f"Failed to remove seats from source: {result_delete.error}")
+        result = self.seat_service.move_seats(current_section_name, target, seats_to_move)
+
+        if not result.is_success():
+            QMessageBox.warning(self, "Error", str(result.error))
             return
-        
-        # Add to target section via SeatService (need to add seats via add_seat for each)
-        failed = []
-        for row, seat in seats_to_move:
-            result_add = self.seat_service.add_seat(target, row, seat)
-            if not result_add.is_success():
-                failed.append(f"{row}-{seat}")
-        
-        # Refresh UI
-        try:
-            mainwindow.refresh_section_table()
-        except Exception:
-            pass
+
+        moved = result.value
+        skipped = len(seats_to_move) - moved
         self.load_section(self.section)
         self.sectionModified.emit()
-        
-        if failed:
-            QMessageBox.warning(self, "Partial Move", f"Failed to move to target: {', '.join(failed)}")
-        else:
-            QMessageBox.information(self, "Success", f"Moved {len(seats_to_move)} seats to {target}")
+
+        if skipped > 0:
+            QMessageBox.warning(
+                self,
+                "Partial Move",
+                f"Moved {moved} seat(s) to '{target}'. {skipped} skipped (already exist in target)."
+            )
 
     # ---------- Seat Manipulation ----------
     def add_row_range_dialog(self):

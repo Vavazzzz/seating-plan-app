@@ -1,8 +1,8 @@
 """Dialogs for section management operations."""
 
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QSpinBox,
-    QCheckBox, QDialogButtonBox, QComboBox
+    QDialog, QVBoxLayout, QLabel, QLineEdit, QSpinBox,
+    QCheckBox, QDialogButtonBox,
 )
 from .base import InputDialog, CheckboxDialog
 
@@ -32,47 +32,41 @@ class RenameSectionDialog(InputDialog):
 
 
 class MergeSectionsDialog(QDialog):
-    """Dialog to merge sections."""
-    
-    def __init__(self, available_sections: list, parent=None):
+    """Dialog to merge checked sections into a new named section."""
+
+    def __init__(self, source_names: list[str], parent=None):
         super().__init__(parent)
         self.setWindowTitle("Merge Sections")
         self.setModal(True)
-        
+
         layout = QVBoxLayout()
-        
-        # Source sections selection
-        layout.addWidget(QLabel("Merge from (select one or more):"))
-        # Note: In a real implementation, this would be a list widget allowing multi-select
-        # For now, we'll simplify with spinboxes for demonstration
-        
-        layout.addWidget(QLabel("Merge into:"))
-        self.target_combo = QComboBox()
-        self.target_combo.addItems(available_sections)
-        layout.addWidget(self.target_combo)
-        
-        layout.addWidget(QLabel(""))  # Spacer
-        
-        self.delete_sources = QCheckBox("Delete source sections after merge")
-        self.delete_sources.setChecked(True)
-        layout.addWidget(self.delete_sources)
-        
+
+        sources_text = ", ".join(source_names) if source_names else "—"
+        layout.addWidget(QLabel(f"Merging: {sources_text}"))
+        layout.addWidget(QLabel("New section name:"))
+
+        self.name_field = QLineEdit()
+        layout.addWidget(self.name_field)
+
+        self.delete_sources_check = QCheckBox("Delete source sections after merge")
+        self.delete_sources_check.setChecked(True)
+        layout.addWidget(self.delete_sources_check)
+
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
-        
+
         self.setLayout(layout)
-    
-    def get_target(self) -> str:
-        """Get target section name."""
-        return self.target_combo.currentText()
-    
+        self.name_field.setFocus()
+
+    def get_new_name(self) -> str:
+        return self.name_field.text().strip()
+
     def delete_sources_checked(self) -> bool:
-        """Check if delete sources is enabled."""
-        return self.delete_sources.isChecked()
+        return self.delete_sources_check.isChecked()
 
 
 class CloneSectionManyDialog(QDialog):

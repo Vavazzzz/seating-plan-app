@@ -322,36 +322,26 @@ class SectionsPanel(BasePanel):
                 self.show_error("Error", str(result.error))
 
     def _merge_sections(self) -> None:
-        """Merge checked sections into one target section."""
-        # Get checked sections for multi-merge
+        """Merge checked sections into a new named section."""
         checked = self.get_checked_sections()
-        
+
         if len(checked) < 2:
             self.show_warning("Warning", "Select at least 2 sections to merge")
             return
-        
-        sections = sorted(self.section_service.get_section_names())
-        dialog = MergeSectionsDialog(sections, self)
+
+        dialog = MergeSectionsDialog(checked, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            target = dialog.get_target()
+            new_name = dialog.get_new_name()
             delete_sources = dialog.delete_sources_checked()
-            
-            # Validate: can't merge a section into itself
-            if target in checked and len(checked) == 1:
-                self.show_warning("Warning", "Cannot merge section into itself")
+
+            if not new_name:
+                self.show_warning("Warning", "New section name cannot be empty")
                 return
-            
-            # Remove target from sources if present
-            sources = [s for s in checked if s != target]
-            if not sources:
-                self.show_warning("Warning", "At least one section other than target must be selected")
-                return
-            
-            # Perform merge
-            result = self.section_service.merge_sections(sources, target, delete_sources)
+
+            result = self.section_service.merge_sections(checked, new_name, delete_sources)
             if result.is_success():
                 self.refresh()
                 self.section_changed.emit()
-                self.show_success(f"Merged {len(sources)} sections into '{target}'")
+                self.show_success(f"Merged {len(checked)} sections into '{new_name}'")
             else:
                 self.show_error("Error", str(result.error))
