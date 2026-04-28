@@ -12,6 +12,7 @@ from ..dialogs import (
     AddSectionDialog,
     RenameSectionDialog,
     CloneSectionDialog,
+    CloneSectionManyDialog,
     MergeSectionsDialog,
 )
 
@@ -74,6 +75,10 @@ class SectionsPanel(BasePanel):
         clone_btn = QPushButton("Clone")
         clone_btn.clicked.connect(self._clone_section)
         button_layout.addWidget(clone_btn)
+
+        clone_many_btn = QPushButton("Clone ×N")
+        clone_many_btn.clicked.connect(self._clone_section_many)
+        button_layout.addWidget(clone_many_btn)
         
         delete_btn = QPushButton("Delete")
         delete_btn.clicked.connect(self._delete_section)
@@ -291,6 +296,31 @@ class SectionsPanel(BasePanel):
             else:
                 self.show_error("Error", str(result.error))
     
+    def _clone_section_many(self) -> None:
+        """Clone the selected section multiple times with auto-generated names."""
+        index = self.sections_table.currentRow()
+        if index < 0:
+            self.show_warning("Warning", "No section selected")
+            return
+
+        source_item = self.sections_table.item(index, 1)
+        if not source_item:
+            self.show_warning("Warning", "No section selected")
+            return
+
+        source_name = source_item.text()
+        dialog = CloneSectionManyDialog(source_name, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            count = dialog.get_count()
+            result = self.section_service.clone_section_many(source_name, count)
+            if result.is_success():
+                self.refresh()
+                self.section_changed.emit()
+                names = result.value
+                self.show_success(f"Created {len(names)} clone(s): {', '.join(names)}")
+            else:
+                self.show_error("Error", str(result.error))
+
     def _merge_sections(self) -> None:
         """Merge checked sections into one target section."""
         # Get checked sections for multi-merge

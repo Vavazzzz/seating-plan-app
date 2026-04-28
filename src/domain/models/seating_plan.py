@@ -51,13 +51,13 @@ class SeatingPlan:
         # Try to find a prefix and a start number. Example matches:
         #  - "I Ordine Palco 1" -> prefix="I Ordine Palco", start=1
         #  - "Balcony" -> prefix="Balcony", start=None -> we'll treat start as 1
-        m = re.match(r"^(.*\S)(?:\s+(\d+))?$", name)
-        if not m:
+        m = re.match(r"^(.*)\s+(\d+)$", name)
+        if m:
+            prefix = m.group(1)
+            start_num = int(m.group(2))
+        else:
             prefix = name
             start_num = 1
-        else:
-            prefix = m.group(1) if m.group(1) else name
-            start_num = int(m.group(2)) if m.group(2) else 1
 
         current = start_num + 1
         for _ in range(count):

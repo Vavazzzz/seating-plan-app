@@ -75,6 +75,38 @@ class MergeSectionsDialog(QDialog):
         return self.delete_sources.isChecked()
 
 
+class CloneSectionManyDialog(QDialog):
+    """Dialog to clone a section multiple times with auto-generated names."""
+
+    def __init__(self, source_name: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Clone Section Multiple Times")
+        self.setModal(True)
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(f"Source section: {source_name}"))
+        layout.addWidget(QLabel("Number of clones:"))
+
+        self.count_spinbox = QSpinBox()
+        self.count_spinbox.setMinimum(1)
+        self.count_spinbox.setMaximum(99)
+        self.count_spinbox.setValue(1)
+        layout.addWidget(self.count_spinbox)
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+        self.setLayout(layout)
+        self.count_spinbox.setFocus()
+
+    def get_count(self) -> int:
+        return self.count_spinbox.value()
+
+
 class CloneSectionDialog(QDialog):
     """Dialog to clone a section."""
     

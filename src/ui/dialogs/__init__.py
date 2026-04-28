@@ -6,6 +6,7 @@ from .section_dialogs import (
     RenameSectionDialog,
     MergeSectionsDialog,
     CloneSectionDialog,
+    CloneSectionManyDialog,
 )
 from .seat_dialogs import (
     AddSeatDialog,
@@ -21,6 +22,7 @@ __all__ = [
     "RenameSectionDialog",
     "MergeSectionsDialog",
     "CloneSectionDialog",
+    "CloneSectionManyDialog",
     "AddSeatDialog",
     "AddSeatRangeDialog",
     "NewPlanDialog",
