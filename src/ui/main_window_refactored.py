@@ -2,17 +2,15 @@
 
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
-    QStatusBar, QLabel, QMessageBox, QDialog
+    QMainWindow, QWidget, QHBoxLayout,
+    QLabel, QMessageBox, QDialog
 )
 from PyQt6.QtGui import QAction, QKeySequence
-from PyQt6.QtCore import Qt
 
 from domain.models.seating_plan import SeatingPlan
 from application.handlers import CommandHandler
 from application.services import (
     SeatingPlanService,
-    SectionService,
     SeatService,
 )
 from infrastructure.import_export import (

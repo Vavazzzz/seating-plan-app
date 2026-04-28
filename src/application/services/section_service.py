@@ -1,6 +1,6 @@
 """Service for section-level operations."""
 
-from typing import List, Optional
+from typing import List
 from .base import BaseService
 from ..result import Result, ValidationErrors
 from ..commands.section_commands import (
@@ -12,10 +12,7 @@ from ..commands.section_commands import (
     MergeSectionsCommand,
 )
 from domain.exceptions import (
-    DuplicateNameError,
-    SectionNotFoundError,
     MergeConflictError,
-    ValidationError as DomainValidationError,
 )
 
 

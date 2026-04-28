@@ -9,7 +9,6 @@ from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QPoint
 from domain.models.section import Section
 from infrastructure.utils.alphanum_handler import alphanum_range, alphanum_sort_key
 from .dialogs.dialogs import RangeInputDialog, RenumberRowsDialog
-from string import ascii_uppercase
 
 class SeatItemRect:
     WIDTH = 25

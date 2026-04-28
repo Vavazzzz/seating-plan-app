@@ -1,6 +1,6 @@
 """Service for seating plan-level operations."""
 
-from typing import List, Optional
+from typing import Optional
 from pathlib import Path
 from .base import BaseService
 from .section_service import SectionService
