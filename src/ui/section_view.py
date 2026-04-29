@@ -4,12 +4,11 @@ from PyQt6.QtWidgets import (
     QMenu, QInputDialog, QMessageBox, QDialog, QTextEdit, QGroupBox, QLineEdit,
     QDialogButtonBox, QComboBox, QCheckBox
 )
-from PyQt6.QtGui import QBrush, QPen, QPainter
+from PyQt6.QtGui import QBrush, QPen, QPainter, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QPoint
-from ..models.section import Section
-from ..utils.alphanum_handler import alphanum_range, alphanum_sort_key
-from .dialogs import RangeInputDialog, RenumberRowsDialog
-from string import ascii_uppercase
+from domain.models.section import Section
+from domain.utils.alphanum_handler import alphanum_range, alphanum_sort_key
+from .dialogs.dialogs import RangeInputDialog, RenumberRowsDialog
 
 class SeatItemRect:
     WIDTH = 25
@@ -125,6 +124,18 @@ class SectionView(QWidget):
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
 
+        # Service reference for undo/redo support
+        self.seat_service = None
+
+        # Keyboard shortcuts
+        QShortcut(QKeySequence.StandardKey.SelectAll, self).activated.connect(self.select_all_seats)
+        QShortcut(QKeySequence("Escape"), self).activated.connect(self.deselect_all_seats)
+        QShortcut(QKeySequence("Ctrl+0"), self).activated.connect(lambda: self.zoom_slider.setValue(100))
+
+    def set_seat_service(self, seat_service):
+        """Set the seat service for operations to go through command handler."""
+        self.seat_service = seat_service
+
     # ---------- Overlay positioning ----------
     def eventFilter(self, obj, event):
         if obj == self.view.viewport() and event.type() == QEvent.Type.Resize:
@@ -205,66 +216,66 @@ class SectionView(QWidget):
 
     # ---------- Context menu and move seats ----------
     def move_selected_seats_dialog(self):
-        """
-        Show dialog to move selected seats to an existing or new section.
-        Uses the parent (MainWindow) seating_plan to list/create sections.
-        """
-        if not self.section or not self.parent() or not hasattr(self.parent(), "seating_plan"):
+        """Move selected seats to an existing or new section."""
+        if not self.section or not self.seat_service:
             return
 
-        mainwindow = self.parent()
+        mainwindow = self.window()
+        if not mainwindow or not hasattr(mainwindow, "seating_plan") or not hasattr(mainwindow, "section_service"):
+            return
+
         current_section_name = self.section.name
-        all_names = [name for name in mainwindow.seating_plan.sections.keys() if name != current_section_name]
+        all_names = [
+            name for name in mainwindow.seating_plan.sections.keys()
+            if name != current_section_name
+        ]
         all_names.append("Create new section...")
 
-        target_item, ok = QInputDialog.getItem(self, "Move Seats", "Select target section:", all_names, editable=False)
+        target_item, ok = QInputDialog.getItem(
+            self, "Move Seats", "Select target section:", all_names, editable=False
+        )
         if not ok or not target_item:
             return
 
         if target_item == "Create new section...":
-            target_name, ok2 = QInputDialog.getText(self, "New Section", "Enter name for new section:")
-            if not ok2 or not target_name:
+            target_name, ok2 = QInputDialog.getText(
+                self, "New Section", "Enter name for new section:"
+            )
+            if not ok2:
                 return
             target_name = target_name.strip()
             if not target_name:
                 return
-            if target_name in mainwindow.seating_plan.sections:
-                QMessageBox.warning(self, "Exists", "Section by that name already exists.")
+            result_create = mainwindow.section_service.add_section(target_name)
+            if not result_create.is_success():
+                QMessageBox.warning(self, "Error", str(result_create.error))
                 return
-            # push snapshot via aboutToModify in caller
-            mainwindow.seating_plan.add_section(target_name)
             target = target_name
         else:
             target = target_item
 
-        # perform move
         selected_items = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
         if not selected_items:
             return
 
-        # notify about to modify so MainWindow can take a snapshot
-        self.aboutToModify.emit()
+        seats_to_move = [(item.row, str(item.seat)) for item in selected_items]
+        result = self.seat_service.move_seats(current_section_name, target, seats_to_move)
 
-        target_section = mainwindow.seating_plan.sections.get(target)
-        if not target_section:
-            QMessageBox.warning(self, "Target Missing", "Target section could not be found.")
+        if not result.is_success():
+            QMessageBox.warning(self, "Error", str(result.error))
             return
 
-        for item in selected_items:
-            key = f"{item.row}-{item.seat}"
-            seat_obj = self.section.seats.get(key)
-            if seat_obj:
-                # add to target and remove from current
-                target_section.add_seat(seat_obj.row_number, seat_obj.seat_number)
-                self.section.delete_seat(seat_obj.row_number, seat_obj.seat_number)
-
-        # refresh main UI and this view
-        try:
-            mainwindow.refresh_section_table()
-        except Exception:
-            pass
+        moved = result.value
+        skipped = len(seats_to_move) - moved
         self.load_section(self.section)
         self.sectionModified.emit()
+
+        if skipped > 0:
+            QMessageBox.warning(
+                self,
+                "Partial Move",
+                f"Moved {moved} seat(s) to '{target}'. {skipped} skipped (already exist in target)."
+            )
 
     # ---------- Seat Manipulation ----------
     def add_row_range_dialog(self):
@@ -314,10 +325,12 @@ class SectionView(QWidget):
         if not rows:
             return
 
-        # notify before bulk modification
-        self.aboutToModify.emit()
-
-        self.section.add_rows_bulk(
+        # Use SeatService for undo/redo support
+        if not self.seat_service:
+            return
+        
+        result = self.seat_service.add_rows_bulk(
+            self.section.name,
             rows=rows,
             start_seat=start_seat,
             end_seat=end_seat,
@@ -326,9 +339,12 @@ class SectionView(QWidget):
             parity=parity,
             continuous=continuous
         )
-
-        self.load_section(self.section)
-        self.sectionModified.emit()
+        
+        if result.is_success():
+            self.load_section(self.section)
+            self.sectionModified.emit()
+        else:
+            QMessageBox.warning(self, "Error", f"Failed to add rows: {result.error}")
 
     def add_custom_rows_dialog(self):
         """Add seats to custom rows specified as text input (one row per line)."""
@@ -428,10 +444,12 @@ class SectionView(QWidget):
         rows_raw = [line.strip() for line in rows_text_value.split('\n') if line.strip()]
         rows = [f"{prefix}{r}{suffix}" for r in rows_raw]
 
-        # notify before bulk modification
-        self.aboutToModify.emit()
-
-        self.section.add_rows_bulk(
+        # Use SeatService for undo/redo support
+        if not self.seat_service:
+            return
+        
+        result = self.seat_service.add_rows_bulk(
+            self.section.name,
             rows=rows,
             start_seat=start_seat,
             end_seat=end_seat,
@@ -439,35 +457,50 @@ class SectionView(QWidget):
             continuous=continuous
         )
         
-        self.load_section(self.section)
-        self.sectionModified.emit()
-        QMessageBox.information(self, "Success", f"Added seats to {len(rows)} rows.")
+        if result.is_success():
+            self.load_section(self.section)
+            self.sectionModified.emit()
+            QMessageBox.information(self, "Success", f"Added seats to {len(rows)} rows.")
+        else:
+            QMessageBox.warning(self, "Error", f"Failed to add rows: {result.error}")
 
     def delete_selected_seats(self):
-        if not self.section:
+        if not self.section or not self.seat_service:
             return
         selected = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
         if not selected:
             return
-        # push snapshot
-        self.aboutToModify.emit()
-        for item in selected:
-            self.section.delete_seat(item.row, str(item.seat))
-        self.load_section(self.section)
-        self.sectionModified.emit()
+        
+        # Collect (row, seat) tuples and delete via SeatService
+        seats_to_delete = [(item.row, str(item.seat)) for item in selected]
+        result = self.seat_service.delete_seats(self.section.name, seats_to_delete)
+        
+        if result.is_success():
+            self.load_section(self.section)
+            self.sectionModified.emit()
+        else:
+            QMessageBox.warning(self, "Error", f"Failed to delete seats: {result.error}")
 
     def delete_selected_rows(self):
-        if not self.section:
+        if not self.section or not self.seat_service:
             return
         rows = {item.row for item in self.scene.selectedItems() if isinstance(item, SeatItem)}
         if not rows:
             return
-        # push snapshot
-        self.aboutToModify.emit()
-        for r in rows:
-            self.section.delete_row(r)
-        self.load_section(self.section)
-        self.sectionModified.emit()
+        
+        # Delete each row via SeatService (each gets its own command for undo/redo)
+        failed = []
+        for row in rows:
+            result = self.seat_service.delete_row(self.section.name, row)
+            if not result.is_success():
+                failed.append((row, str(result.error)))
+        
+        if not failed:
+            self.load_section(self.section)
+            self.sectionModified.emit()
+        else:
+            error_msg = "\n".join([f"Row {r}: {e}" for r, e in failed])
+            QMessageBox.warning(self, "Error", f"Failed to delete some rows:\n{error_msg}")
 
     def renumber_selected_rows(self):
         """Renumber selected rows with user-specified starting row."""
@@ -492,6 +525,7 @@ class SectionView(QWidget):
             return
         
         sorted_rows = sorted(selected_rows, key=alphanum_sort_key)
+
         # Show dialog
         dialog = RenumberRowsDialog(sorted_rows, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -504,10 +538,18 @@ class SectionView(QWidget):
         
         is_unnumbered = dialog.is_unnumbered_enabled()
         
-        # Apply renumbering
-        try:
-            self.aboutToModify. emit()
-            self.section.renumber_rows(sorted_rows, new_start, add_prefix=is_unnumbered)
+        # Use SeatService for undo/redo support
+        if not self.seat_service:
+            return
+        
+        result = self.seat_service.renumber_rows(
+            self.section.name,
+            sorted_rows,
+            new_start,
+            add_prefix=is_unnumbered
+        )
+        
+        if result.is_success():
             self.load_section(self.section)
             self.sectionModified.emit()
             
@@ -516,10 +558,10 @@ class SectionView(QWidget):
             QMessageBox.information(
                 self, 
                 "Success", 
-                f"Rows renumbered successfully!{unnumbered_text}\nStarting from:  {new_start}"
+                f"Rows renumbered successfully!{unnumbered_text}\nStarting from: {new_start}"
             )
-        except Exception as e:  
-            QMessageBox.critical(self, "Error", f"Failed to renumber rows: {str(e)}")
+        else:
+            QMessageBox.critical(self, "Error", f"Failed to renumber rows: {result.error}")
 
     # ---------- Selection ----------
     def on_selection_changed(self):
@@ -529,7 +571,7 @@ class SectionView(QWidget):
                 it.update_visual()
         self.selectionChanged.emit(len(selected))
 
-    def select_all_seats(self): #TODO: hook up to Ctrl+A
+    def select_all_seats(self):
         for it in self.scene.items():
             if isinstance(it, SeatItem):
                 it.setSelected(True)

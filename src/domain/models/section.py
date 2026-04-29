@@ -1,8 +1,8 @@
-from typing import Dict, Union, List
+from typing import Dict, Union
 from collections import defaultdict
 import copy
 from .seat import Seat
-from ..utils.alphanum_handler import alphanum_range, to_index, from_index
+from domain.utils.alphanum_handler import alphanum_range, to_index, from_index
 
 class Section:
     """Represents a section containing multiple seats."""
@@ -154,6 +154,8 @@ class Section:
             seat.row_number = new_row
             self.seats[new_key] = seat
             del self.seats[old_key]
+
+        return row_mapping
 
     def clone(self) -> 'Section':
         """Return a deep copy of this section with '_copy' appended to name."""

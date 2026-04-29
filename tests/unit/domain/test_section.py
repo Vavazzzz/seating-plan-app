@@ -1,4 +1,4 @@
-from src.models.section import Section
+from domain.models.section import Section
 
 
 def test_add_and_delete_seat():

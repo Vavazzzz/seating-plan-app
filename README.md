@@ -1,116 +1,224 @@
 # Seating Plan Application
 
+A PyQt6 desktop application for creating and managing seating plans, built on a clean layered architecture.
+
 ## Overview
-The Seating Plan Application is a GUI-based tool designed to help users create and manage seating arrangements for various events. Users can create seating plans, define sections, add seats, and export or import seating plans in JSON format.
+
+The Seating Plan Application is a GUI tool for event organizers to create and manage seating arrangements. It supports multiple sections, flexible seat/row labeling, file import/export, and full undo/redo.
+
+**Architecture**: Layered, with clear separation of concerns:
+- **Domain Layer** — business entities and logic, no external dependencies
+- **Application Layer** — use cases, services, and command pattern for undo/redo
+- **Infrastructure Layer** — persistence and file import/export
+- **Presentation Layer** — PyQt6 UI with dialogs and widgets
 
 ## Features
-- Create and manage seating plans and sections
-- Add, delete, and rename sections
-- **Drag & drop reorder** sections via the sections table
-- Add and delete individual seats or ranges of seats (numeric and alpha)
-- Clone sections (single or many copies)
-- Change row and seat numbers, delete entire rows
-- Move selected seats between sections with right-click context menu
-- Select seats by row, select all seats in section, or deselect via context menu
-- Export seating plans to JSON (`.seatproj`) or Excel
-- Import seating plans from JSON, Excel, or Avail XML
-- Undo/redo support and deep copy snapshots
-- General‑admission sections and seat counts
 
-## User Interface Highlights
-- Central graphics view with zoom, pan, and multi‑select
-- Right-click context menu on seats with utilities while preserving selection
-- Sections panel with checkboxes for bulk operations
-- Status bar shows current section, seat counts, and selected seat tally
+### Section Management
+- Add, rename, delete, clone, and merge sections
+- Clone a section once or multiple times with automatic sequential naming
+- Merge multiple sections into a new section (conflict detection included)
+- Checkbox multi-select for batch operations (delete, merge)
+
+### Seat Management
+- Add seats individually, by row range, or by custom row list
+- Numeric and alphanumeric seat/row labels with optional prefix/suffix
+- Even/odd seat filters and continuous numbering across rows
+- Delete seats or entire rows
+- Move selected seats to another section (or a new one created on the fly)
+- Renumber rows with a custom start value
+
+### File Operations
+- **Save/Load**: JSON-based project persistence
+- **Import**: JSON, Excel (`.xlsx`), Avail XML
+- **Export**: JSON, Excel
+- Full **undo/redo** for all mutating operations
+
+### User Interface
+- Section view with zoom (slider + Ctrl+scroll), pan (middle-mouse drag), and rubber-band multi-select
+- Right-click context menu for seat operations
+- Sections panel with checkbox multi-select
+- Status bar feedback on every operation
+- Keyboard shortcuts for common actions
 
 ## Installation
-1. Clone the repository:
-   ```
+
+### Prerequisites
+- Python 3.10 or higher
+- pip
+
+### Setup
+
+1. **Clone the repository**:
+   ```bash
    git clone <repository-url>
-   ```
-2. Navigate to the project directory:
-   ```
    cd seating-plan-app
    ```
-3. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
+
+2. **Create and activate a virtual environment**:
+   ```bash
+   python -m venv .venv-gui
+
+   # Windows (PowerShell)
+   .\.venv-gui\Scripts\Activate.ps1
+
+   # Windows (Command Prompt)
+   .venv-gui\Scripts\activate
+
+   # macOS / Linux
+   source .venv-gui/bin/activate
    ```
 
-## Usage
-Run the application from the workspace root:
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements/gui.txt
+   ```
+
+## Running the Application
+
 ```bash
-python -m src.ui.main_window
+python run.py
 ```
 
-Keyboard shortcuts:
-- **Del**: Delete selected seats
-- **Shift+Del**: Delete rows of selected seats
-- **Ctrl+A**: Select all seats (in section view)
-- **Ctrl+N**: Add section / new project
-- **F5**: Refresh view
+## Keyboard Shortcuts
 
-A floating zoom slider appears in the bottom right of the section view.
+| Shortcut | Action |
+|---|---|
+| `Ctrl+N` | Create new plan |
+| `Ctrl+O` | Open plan |
+| `Ctrl+S` | Save |
+| `Ctrl+Shift+S` | Save As |
+| `Ctrl+E` | Export |
+| `Ctrl+I` | Import |
+| `Ctrl+Z` | Undo |
+| `Ctrl+Y` | Redo |
+| `Ctrl+A` | Select all seats in current section |
+| `Escape` | Deselect all seats |
+| `Del` | Delete selected seats |
+| `Shift+Del` | Delete rows of selected seats |
+| `Ctrl+0` | Reset zoom to 100% |
+| `Ctrl+Q` | Quit |
 
 ## Testing
-Unit tests are located under the `tests/` directory. Run them with:
+
 ```bash
-python -m pytest -q
+# All tests
+python -m pytest tests/ -v
+
+# Domain model tests only
+python -m pytest tests/unit/domain/ -v
+
+# UI tests only
+python -m pytest tests/ui/ -v
 ```
-Tests cover models and UI-related behaviors (order, serialization, batch operations).
+
+Tests use `src/` as the Python path root (configured in `pyproject.toml`). Import as:
+```python
+from domain.models.seating_plan import SeatingPlan  # correct
+# not: from src.domain.models.seating_plan import SeatingPlan
+```
 
 ## Project Structure
+
 ```
-seating-plan-app
-├── src
-│   ├── ui
-│   │   ├── __init__.py     # UI module initialization
-│   │   ├── main_window.py   # Main window layout and event handling
-│   │   └── section_view.py  # Detailed view of a section
-│   ├── models
-│   │   ├── __init__.py     # Models module initialization
-│   │   ├── seating_plan.py  # SeatingPlan model
-│   │   ├── section.py       # Section model
-│   │   └── seat.py          # Seat model
-│   └── utils
-│       ├── __init__.py          # Utils module initialization
-|       ├── alphanum_handler.py  # Handling of alphanumeric ranges
-│       └── json_io.py           # Project import/export functions
-├── examples
-│   └── seating_plan_example.json  # Example seating plan
-├── tests
-│   ├── test_seating_plan.py  # Unit tests for SeatingPlan
-│   └── test_section.py       # Unit tests for Section
-├── requirements.txt           # Project dependencies
-├── pyproject.toml            # Project configuration
-├── .gitignore                 # Files to ignore in version control
-└── README.md                  # Project documentation
+seating-plan-app/
+├── run.py                           # Application entry point
+├── pyproject.toml                   # Project config and pytest settings
+├── CHANGELOG.md
+├── README.md
+│
+├── src/
+│   ├── domain/                      # Business logic — no external deps
+│   │   ├── models/
+│   │   │   ├── seating_plan.py      # SeatingPlan aggregate
+│   │   │   ├── section.py           # Section entity
+│   │   │   └── seat.py              # Seat value object
+│   │   └── exceptions.py            # Domain exceptions
+│   │
+│   ├── application/                 # Use cases and services
+│   │   ├── commands/
+│   │   │   ├── base.py              # Abstract Command
+│   │   │   ├── seat_commands.py     # Seat-level commands (add, delete, move, …)
+│   │   │   └── section_commands.py  # Section-level commands (add, clone, merge, …)
+│   │   ├── handlers/
+│   │   │   └── command_handler.py   # Undo/redo stack
+│   │   ├── services/
+│   │   │   ├── base.py              # BaseService with validation helpers
+│   │   │   ├── seating_plan_service.py
+│   │   │   ├── section_service.py
+│   │   │   └── seat_service.py
+│   │   ├── result.py                # Result[T, E] — explicit error handling
+│   │   └── use_cases.py             # Import/export/save/load use cases
+│   │
+│   ├── infrastructure/              # Persistence and file I/O
+│   │   ├── import_export/
+│   │   │   ├── abstract.py          # Importer / Exporter base classes
+│   │   │   ├── json_importer.py
+│   │   │   ├── json_exporter.py
+│   │   │   ├── excel_importer.py
+│   │   │   ├── excel_exporter.py
+│   │   │   └── avail_importer.py
+│   │   ├── persistence/
+│   │   │   ├── abstract.py          # SeatingPlanRepository interface
+│   │   │   └── json_repository.py
+│   │   └── utils/
+│   │       └── alphanum_handler.py  # Alphanumeric sort and range utilities
+│   │
+│   └── ui/                          # PyQt6 presentation layer
+│       ├── main_window_refactored.py # Main window
+│       ├── section_view.py           # Section graphics view
+│       ├── dialogs/
+│       │   ├── base.py               # InputDialog, CheckboxDialog
+│       │   ├── section_dialogs.py    # Section operation dialogs
+│       │   ├── seat_dialogs.py       # Seat operation dialogs
+│       │   └── dialogs.py            # Range and renumber dialogs
+│       └── widgets/
+│           ├── base.py               # BasePanel
+│           └── sections_panel.py     # Sections management panel
+│
+├── tests/
+│   ├── unit/
+│   │   └── domain/
+│   │       ├── test_seating_plan.py
+│   │       └── test_section.py
+│   └── ui/
+│       └── test_ui_features.py
+│
+└── docs/
+    ├── DEVELOPER_GUIDE.md
+    ├── USER_GUIDE.md
+    └── RELEASE.md
 ```
 
-## Contributing
-Contributions are welcome! You can:
+## Architecture Notes
 
-1. Fork the repository and create a new branch for your feature or fix.
-2. Add or update tests under `tests/` corresponding to your changes.
-3. Submit a pull request with a clear description of your changes.
-4. Run `python -m pytest -q` to ensure all tests pass before requesting review.
+### Command Pattern (undo/redo)
+All state mutations go through `CommandHandler.execute()`. Each command snapshots its before-state in `execute()` so `undo()` can replay it exactly — no recomputation.
 
-### Release Process
-A maintainer can tag a new release by updating `pyproject.toml` version and creating a
-Git tag (e.g., `v1.1.8`). A `CHANGELOG.md` file can be appended with the list of changes.
+### Result Type
+Every public service method returns `Result[T, E]`:
+```python
+result = section_service.add_section("Balcony")
+if result.is_success():
+    print(result.value)   # section name
+else:
+    print(result.error)   # ValidationErrors
+```
 
-See `docs/RELEASE.md` for a sample release workflow.
+### Layer Import Rules
+| Layer | May import | Must not import |
+|---|---|---|
+| `domain/` | other `domain/` | `application/`, `infrastructure/`, `ui/`, PyQt6 |
+| `application/` | `domain/`, other `application/` | `infrastructure/` concrete classes, `ui/`, PyQt6 |
+| `infrastructure/` | `domain/` | `application/`, `ui/`, PyQt6 |
+| `ui/` | `application/services/`, `application/result.py`, `domain/models/` | `infrastructure/` directly |
 
 ## License
-This project is licensed under the MIT License. See the LICENSE file for details.
 
----
+MIT License — see LICENSE file for details.
 
-### Release Notes (latest)
-- **v1.1.8**
-  - Added drag & drop ordering of sections
-  - Developed right-click context menu with seat utilities
-  - Added serialization support for sections (`to_dict`)
-  - Improved undo/redo and enhanced UI controls
-  - Expanded test coverage: new unit tests for model and UI behaviors
-  - Updated documentation and user guide
+## Documentation
+
+- [User Guide](docs/USER_GUIDE.md)
+- [Developer Guide](docs/DEVELOPER_GUIDE.md)
+- [Release Process](docs/RELEASE.md)
