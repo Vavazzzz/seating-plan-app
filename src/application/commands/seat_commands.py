@@ -322,49 +322,30 @@ class RenumberRowsCommand(Command):
         new_start_row: str,
         add_prefix: bool = False,
     ):
-        """Initialize renumber rows command.
-        
-        Args:
-            section: The Section to modify
-            old_rows: List of old row numbers to renumber (in order)
-            new_start_row: Starting row number for new numbering
-            add_prefix: If True, add '#' prefix to all new row numbers
-        """
         super().__init__(f"Renumber {len(old_rows)} rows starting from {new_start_row}")
         self.section = section
         self.old_rows = old_rows
         self.new_start_row = new_start_row
         self.add_prefix = add_prefix
-        self._old_state: dict = {}  # Save row numbers before renumbering
-    
+        self._row_mapping: dict[str, str] = {}  # old_row -> new_row, captured at execute time
+
     def execute(self) -> None:
-        """Renumber the rows."""
-        # Save old state for undo - map old_row -> new_row
-        for old_row in self.old_rows:
-            self._old_state[old_row] = old_row  # Will be overwritten in section
-        
-        # Perform renumbering via section's method
-        self.section.renumber_rows(self.old_rows, self.new_start_row, self.add_prefix)
+        self._row_mapping = self.section.renumber_rows(self.old_rows, self.new_start_row, self.add_prefix)
         self._executed = True
-    
+
     def undo(self) -> None:
-        """Restore the old row numbers."""
-        # Get the new row numbers that were created
-        new_rows = []
-        try:
-            # Try to generate what the new rows should be
-            from infrastructure.utils.alphanum_handler import alphanum_range
-            start = self.new_start_row
-            if self.add_prefix:
-                start = start.lstrip('#')
-            new_rows = alphanum_range(start, str(int(start) + len(self.old_rows) - 1)) if start.isdigit() else None
-            if not new_rows:
-                new_rows = [f"#{i}" for i in range(len(self.old_rows))]
-        except:
-            # Fallback: assume sequential numbers
-            new_rows = [f"{self.new_start_row}_{i}" for i in range(len(self.old_rows))]
-        
-        # Restore old row numbers by renumbering back
-        if len(new_rows) == len(self.old_rows):
-            self.section.renumber_rows(new_rows, self.old_rows[0], False)
+        reverse: dict[str, str] = {new: old for old, new in self._row_mapping.items()}
+        changes = []
+        for new_key in list(self.section.seats.keys()):
+            seat = self.section.seats[new_key]
+            if seat.row_number in reverse:
+                old_row = reverse[seat.row_number]
+                _, seat_number = new_key.split('-', 1)
+                old_key = f"{old_row}-{seat_number}"
+                changes.append((new_key, old_key, old_row))
+        for new_key, old_key, old_row in changes:
+            seat = self.section.seats[new_key]
+            seat.row_number = old_row
+            self.section.seats[old_key] = seat
+            del self.section.seats[new_key]
 

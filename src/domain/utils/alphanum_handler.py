@@ -40,7 +40,7 @@ def alphanum_range(start: str, end: str) -> list[str]:
         return [from_index(i, is_digit) for i in range(start_idx, end_idx + 1)]
     except Exception:
         return []
-    
+
 # Alphanumeric sorting helper
 def alphanum_sort_key(value: str):
     # Extract leading digits, trailing digits, and letters
@@ -49,22 +49,22 @@ def alphanum_sort_key(value: str):
         prefix, num, suffix = match.groups()
         # Sort by: prefix, then number, then suffix
         return (0, prefix, int(num), suffix)
-    
+
     # Try pure numeric
     try:
         return (0, "", int(value), "")
     except ValueError:
         pass
-    
+
     # Try extract any numbers from the middle/end
     nums = re.findall(r'\d+', value)
     if nums:
         # has some numbers: sort by first number found, then the string
         return (1, int(nums[0]), value)
-    
+
     # Pure alpha: use base-26 index so single letters (1-26) sort before double letters (27+)
     if value.isalpha():
         return (2, to_index(value.upper()), "")
-    
+
     # Other: sort last
     return (3, value, 0, "")

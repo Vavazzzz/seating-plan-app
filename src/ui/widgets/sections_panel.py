@@ -102,7 +102,7 @@ class SectionsPanel(BasePanel):
     
     def refresh(self) -> None:
         """Refresh the sections table."""
-        sections = sorted(self.section_service.get_section_names())
+        sections = self.section_service.get_section_names()
         seating_plan = self.section_service.seating_plan
         
         self.sections_table.setRowCount(len(sections))
