@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton,
     QHeaderView, QAbstractItemView, QDialog
 )
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtCore import pyqtSignal, Qt
 from typing import TYPE_CHECKING, Optional
 
@@ -63,7 +64,6 @@ class SectionsPanel(BasePanel):
         
         # Buttons
         button_layout = QHBoxLayout()
-        
         addsec_btn = QPushButton("Add Section")
         addsec_btn.clicked.connect(self._add_section)
         button_layout.addWidget(addsec_btn)
@@ -76,7 +76,7 @@ class SectionsPanel(BasePanel):
         clone_btn.clicked.connect(self._clone_section)
         button_layout.addWidget(clone_btn)
 
-        clone_many_btn = QPushButton("Clone ×N")
+        clone_many_btn = QPushButton("Clone Multiple")
         clone_many_btn.clicked.connect(self._clone_section_many)
         button_layout.addWidget(clone_many_btn)
         
@@ -91,6 +91,14 @@ class SectionsPanel(BasePanel):
         layout.addLayout(button_layout)
         
         self.setLayout(layout)
+
+        rename_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F2), self)
+        rename_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        rename_shortcut.activated.connect(self._rename_section)
+
+        add_shortcut = QShortcut(QKeySequence("Ctrl+B"), self)
+        add_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        add_shortcut.activated.connect(self._add_section)
     
     def refresh(self) -> None:
         """Refresh the sections table."""
