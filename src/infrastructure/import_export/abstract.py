@@ -1,7 +1,7 @@
 """Abstract base classes for import/export infrastructure."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from domain.models.seating_plan import SeatingPlan

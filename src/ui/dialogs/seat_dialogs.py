@@ -1,7 +1,6 @@
 """Dialogs for seat management and file operations."""
 
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QFileDialog
-from PyQt6.QtCore import Qt
 from .base import InputDialog
 
 

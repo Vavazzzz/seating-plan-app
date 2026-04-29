@@ -1,7 +1,6 @@
 """Abstract repository interface for seating plan persistence."""
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 
 from domain.models.seating_plan import SeatingPlan
 

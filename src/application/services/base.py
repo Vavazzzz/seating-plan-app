@@ -1,6 +1,6 @@
 """Base service class for domain operations coordination."""
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, Optional
 from ..result import Result, ValidationErrors
 from ..handlers.command_handler import CommandHandler
 

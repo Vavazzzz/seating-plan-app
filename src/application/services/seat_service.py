@@ -1,6 +1,6 @@
 """Service for seat-level operations."""
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from .base import BaseService
 from ..result import Result, ValidationErrors
 from ..commands.seat_commands import (
@@ -13,7 +13,6 @@ from ..commands.seat_commands import (
     RenumberRowsCommand,
     MoveSeatsCommand,
 )
-from domain.models.section import Section
 
 
 class SeatService(BaseService):

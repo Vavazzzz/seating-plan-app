@@ -1,4 +1,4 @@
-from typing import Dict, Union, List
+from typing import Dict, Union
 from collections import defaultdict
 import copy
 from .seat import Seat
