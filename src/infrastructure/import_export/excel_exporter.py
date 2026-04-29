@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 from openpyxl import Workbook
 
 from domain.exceptions import SeatingPlanException
-from infrastructure.utils.alphanum_handler import alphanum_sort_key
+from domain.utils.alphanum_handler import alphanum_sort_key
 from .abstract import Exporter
 
 
