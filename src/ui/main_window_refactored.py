@@ -83,6 +83,7 @@ class RefactoredMainWindow(QMainWindow):
         self.section_view = SectionView(self)
         self.section_view.set_seat_service(self.seat_service)
         self.section_view.sectionModified.connect(self._refresh_ui)
+        self.section_view.selectionChanged.connect(self._update_section_info)
         layout.addWidget(self.section_view, 2)
         
         central.setLayout(layout)
@@ -156,6 +157,8 @@ class RefactoredMainWindow(QMainWindow):
         """Create status bar."""
         self.status_label = QLabel("Ready")
         self.statusBar().addWidget(self.status_label, 1)
+        self.section_info_label = QLabel("")
+        self.statusBar().addPermanentWidget(self.section_info_label)
     
     def _setup_callbacks(self) -> None:
         """Setup service callbacks."""
@@ -182,6 +185,7 @@ class RefactoredMainWindow(QMainWindow):
         if selected and selected in self.seating_plan.sections:
             section = self.seating_plan.sections[selected]
             self.section_view.load_section(section)
+        self._update_section_info(0)
     
     # File operations
     
@@ -299,6 +303,16 @@ class RefactoredMainWindow(QMainWindow):
         elif result.error and result.error.has_errors():
             self.status_label.setText(str(result.error))
     
+    def _update_section_info(self, selected_count: int = 0) -> None:
+        section = self.section_view.section
+        if section:
+            total = len(section.seats)
+            self.section_info_label.setText(
+                f"Section: {section.name}  |  Seats: {total}  |  Selected: {selected_count}"
+            )
+        else:
+            self.section_info_label.setText("")
+
     def _on_sections_changed(self) -> None:
         """Handle sections change."""
         self._refresh_ui()
@@ -309,6 +323,7 @@ class RefactoredMainWindow(QMainWindow):
             section = self.seating_plan.sections[section_name]
             self.section_view.load_section(section)
             self.status_label.setText(f"Section: {section_name}")
+            self._update_section_info(0)
 
     def _on_section_added(self, section_name: str) -> None:
         """Select the new section and immediately open the row range dialog."""
