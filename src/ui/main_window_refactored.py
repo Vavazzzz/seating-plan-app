@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout,
+    QMainWindow, QSplitter,
     QLabel, QMessageBox, QDialog
 )
 from PyQt6.QtGui import QAction, QKeySequence
@@ -69,25 +69,28 @@ class RefactoredMainWindow(QMainWindow):
     
     def _create_ui(self) -> None:
         """Create main UI layout."""
-        central = QWidget()
-        layout = QHBoxLayout()
-        
+        splitter = QSplitter()
+
         # Sections panel (left)
         self.sections_panel = SectionsPanel(self.section_service, self)
         self.sections_panel.section_changed.connect(self._on_sections_changed)
         self.sections_panel.section_selected.connect(self._on_section_selected)
         self.sections_panel.section_added.connect(self._on_section_added)
-        layout.addWidget(self.sections_panel, 0)
-        
+        self.sections_panel.setMinimumWidth(150)
+        splitter.addWidget(self.sections_panel)
+
         # Section view (right) - shows seat grid
         self.section_view = SectionView(self)
         self.section_view.set_seat_service(self.seat_service)
         self.section_view.sectionModified.connect(self._refresh_ui)
         self.section_view.selectionChanged.connect(self._update_section_info)
-        layout.addWidget(self.section_view, 2)
-        
-        central.setLayout(layout)
-        self.setCentralWidget(central)
+        splitter.addWidget(self.section_view)
+
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([300, 900])
+
+        self.setCentralWidget(splitter)
     
     def _create_menu_bar(self) -> None:
         """Create menu bar."""
