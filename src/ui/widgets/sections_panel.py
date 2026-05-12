@@ -62,33 +62,37 @@ class SectionsPanel(BasePanel):
         self.sections_table.itemChanged.connect(self._on_checkbox_changed)
         layout.addWidget(self.sections_table)
         
-        # Buttons
-        button_layout = QHBoxLayout()
+        # Buttons — row 1
+        button_row1 = QHBoxLayout()
         addsec_btn = QPushButton("Add Section")
         addsec_btn.clicked.connect(self._add_section)
-        button_layout.addWidget(addsec_btn)
-        
+        button_row1.addWidget(addsec_btn)
+
         rename_btn = QPushButton("Rename")
         rename_btn.clicked.connect(self._rename_section)
-        button_layout.addWidget(rename_btn)
-        
+        button_row1.addWidget(rename_btn)
+
         clone_btn = QPushButton("Clone")
         clone_btn.clicked.connect(self._clone_section)
-        button_layout.addWidget(clone_btn)
+        button_row1.addWidget(clone_btn)
 
+        layout.addLayout(button_row1)
+
+        # Buttons — row 2
+        button_row2 = QHBoxLayout()
         clone_many_btn = QPushButton("Clone Multiple")
         clone_many_btn.clicked.connect(self._clone_section_many)
-        button_layout.addWidget(clone_many_btn)
-        
+        button_row2.addWidget(clone_many_btn)
+
         delete_btn = QPushButton("Delete")
         delete_btn.clicked.connect(self._delete_section)
-        button_layout.addWidget(delete_btn)
-        
+        button_row2.addWidget(delete_btn)
+
         merge_btn = QPushButton("Merge")
         merge_btn.clicked.connect(self._merge_sections)
-        button_layout.addWidget(merge_btn)
-        
-        layout.addLayout(button_layout)
+        button_row2.addWidget(merge_btn)
+
+        layout.addLayout(button_row2)
         
         self.setLayout(layout)
 
