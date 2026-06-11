@@ -22,32 +22,7 @@ class ValidationError(SeatingPlanException):
 
 class MergeConflictError(SeatingPlanException):
     """Raised when attempting to merge sections that contain conflicting seats."""
-    
+
     def __init__(self, message: str, conflicts: Optional[dict] = None) -> None:
         super().__init__(message, "MERGE_CONFLICT")
         self.conflicts = conflicts or {}
-
-
-class SectionNotFoundError(SeatingPlanException):
-    """Raised when a section is not found."""
-    
-    def __init__(self, section_name: str) -> None:
-        message = f"Section '{section_name}' not found"
-        super().__init__(message, "SECTION_NOT_FOUND")
-        self.section_name = section_name
-
-
-class DuplicateNameError(SeatingPlanException):
-    """Raised when attempting to create a duplicate name."""
-    
-    def __init__(self, entity_type: str, name: str) -> None:
-        message = f"{entity_type} with name '{name}' already exists"
-        super().__init__(message, "DUPLICATE_NAME")
-        self.name = name
-
-
-class InvalidStateError(SeatingPlanException):
-    """Raised when an operation is attempted in an invalid state."""
-    
-    def __init__(self, message: str) -> None:
-        super().__init__(message, "INVALID_STATE")

@@ -2,6 +2,7 @@
 
 from domain.models.seating_plan import SeatingPlan
 from domain.models.section import Section
+from domain.utils.alphanum_handler import alphanum_sort_key
 
 
 def test_reorder_sections_via_dict_recreation():
@@ -179,48 +180,44 @@ def test_reorder_with_different_section_counts():
         assert list(sp.sections.keys()) == reversed_order
 
 
-def test_undo_redo_stack_logic():
-    """Simulate the MainWindow undo/redo stack behavior."""
-    import copy
-    undo_stack = []
-    redo_stack = []
+def test_undo_redo_via_command_handler():
+    """Undo/redo through CommandHandler as used by the MainWindow."""
+    from application.handlers import CommandHandler
+    from application.commands import AddSectionCommand, AddRowsCommand
+
     plan = SeatingPlan("Initial")
-    
+    handler = CommandHandler()
+
     # Action 1: Add Section
-    undo_stack.append(copy.deepcopy(plan))
-    plan.add_section("Section 1")
-    redo_stack.clear()
-    
-    # Action 2: Add Seat
-    undo_stack.append(copy.deepcopy(plan))
-    plan.sections["Section 1"].add_seat("1", "1")
-    
-    assert len(undo_stack) == 2
-    
-    # Undo Action 2
-    redo_stack.append(copy.deepcopy(plan))
-    plan = undo_stack.pop()
-    assert "1-1" not in plan.sections["Section 1"].seats
-    
-    # Redo Action 2
-    undo_stack.append(copy.deepcopy(plan))
-    plan = redo_stack.pop()
+    handler.execute(AddSectionCommand(plan, "Section 1"))
+    # Action 2: Add seats
+    handler.execute(AddRowsCommand(plan.sections["Section 1"], ["1"], "1", "1"))
+
+    assert len(handler.undo_stack) == 2
     assert "1-1" in plan.sections["Section 1"].seats
-    
-    # New Action (Should clear redo)
-    undo_stack.append(copy.deepcopy(plan))
-    plan.add_section("Section 2")
-    redo_stack.clear()
-    assert len(redo_stack) == 0
+
+    # Undo Action 2
+    assert handler.undo()
+    assert "1-1" not in plan.sections["Section 1"].seats
+
+    # Redo Action 2
+    assert handler.redo()
+    assert "1-1" in plan.sections["Section 1"].seats
+
+    # New action clears the redo stack
+    assert handler.undo()
+    handler.execute(AddSectionCommand(plan, "Section 2"))
+    assert not handler.can_redo()
 
 
 def test_sorting_logic_consistency():
     """Test the alphanum_sort_key used by SectionView for visual consistency."""
     rows = ["Row 10", "Row 2", "Row 1", "Row 11", "A1", "A10", "A2"]
     sorted_rows = sorted(rows, key=alphanum_sort_key)
-    
-    # Expect natural sorting: Numbers within strings should be compared as integers
-    expected = ["Row 1", "Row 2", "Row 10", "Row 11", "A1", "A2", "A10"]
+
+    # Natural sort: group by prefix alphabetically, then compare the
+    # embedded numbers as integers (so 2 < 10).
+    expected = ["A1", "A2", "A10", "Row 1", "Row 2", "Row 10", "Row 11"]
     assert sorted_rows == expected
 
 

@@ -1,14 +1,13 @@
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QVBoxLayout, QHBoxLayout, QPushButton,
     QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame,
-    QMenu, QInputDialog, QMessageBox, QDialog, QTextEdit, QGroupBox, QLineEdit,
-    QDialogButtonBox, QComboBox, QCheckBox
+    QMenu, QInputDialog, QMessageBox, QDialog
 )
 from PyQt6.QtGui import QBrush, QPen, QPainter, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QPoint
 from domain.models.section import Section
 from domain.utils.alphanum_handler import alphanum_range, alphanum_sort_key
-from .dialogs.dialogs import RangeInputDialog, RenumberRowsDialog
+from .dialogs import RangeInputDialog, AddCustomRowsDialog, RenumberRowsDialog
 
 class SeatItemRect:
     WIDTH = 25
@@ -41,7 +40,6 @@ class SeatItem(QGraphicsRectItem):
 class SectionView(QWidget):
     """A QWidget for rendering and manipulating a Section in a seating plan."""
     selectionChanged = pyqtSignal(int)
-    aboutToModify = pyqtSignal()   # emitted before mutating ops (for undo)
     sectionModified = pyqtSignal()  # emitted after mutation (for refresh)
 
     def __init__(self, parent=None):
@@ -281,7 +279,7 @@ class SectionView(QWidget):
     def add_row_range_dialog(self):
         if not self.section:
             return
-        dialog = RangeInputDialog("row", self)
+        dialog = RangeInputDialog(self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         data = dialog.get_values()
@@ -298,7 +296,7 @@ class SectionView(QWidget):
         end_seat = data["end_seat"]
         parity = data.get("parity", "all")
         continuous = bool(data.get("continuous", False))
-        unnamaberedrows = bool(data.get("unnambered_rows", False))
+        unnumbered_rows = bool(data.get("unnumbered_rows", False))
 
         # Build rows list (numeric or letter ranges supported)
         rows_raw = []
@@ -316,7 +314,7 @@ class SectionView(QWidget):
                 QMessageBox.warning(self, "Invalid rows", "Could not interpret start/end row range.")
                 return
 
-        if unnamaberedrows:
+        if unnumbered_rows:
             rows = [f"#{r}" for r in rows_raw]
         else:
             # Compose final row labels with prefix/suffix
@@ -350,113 +348,35 @@ class SectionView(QWidget):
         """Add seats to custom rows specified as text input (one row per line)."""
         if not self.section:
             return
-        
-        # Create dialog for custom rows input
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Add Custom Rows")
-        dialog.setGeometry(100, 100, 600, 500)
-        
-        layout = QVBoxLayout(dialog)
-        
-        # Label for rows
-        rows_label = QLabel("Enter row numbers (one per line):")
-        layout.addWidget(rows_label)
-        
-        # Text edit for custom rows
-        rows_input = QTextEdit()
-        rows_input.setPlaceholderText("Enter rows here, one per line:\nA\nB\nC\n...")
-        layout.addWidget(rows_input)
-        
-        # Seat range section
-        seat_group = QGroupBox("Seat Range")
-        seat_layout = QVBoxLayout()
-        
-        start_seat_label = QLabel("Start Seat:")
-        start_seat_input = QLineEdit()
-        seat_layout.addWidget(start_seat_label)
-        seat_layout.addWidget(start_seat_input)
-        
-        end_seat_label = QLabel("End Seat:")
-        end_seat_input = QLineEdit()
-        seat_layout.addWidget(end_seat_label)
-        seat_layout.addWidget(end_seat_input)
-        
-        seat_group.setLayout(seat_layout)
-        layout.addWidget(seat_group)
-        
-        # Row prefix/suffix section
-        prefix_suffix_group = QGroupBox("Row Prefix/Suffix")
-        prefix_suffix_layout = QVBoxLayout()
-        
-        prefix_label = QLabel("Prefix:")
-        prefix_input = QLineEdit()
-        prefix_suffix_layout.addWidget(prefix_label)
-        prefix_suffix_layout.addWidget(prefix_input)
-        
-        suffix_label = QLabel("Suffix:")
-        suffix_input = QLineEdit()
-        prefix_suffix_layout.addWidget(suffix_label)
-        prefix_suffix_layout.addWidget(suffix_input)
-        
-        prefix_suffix_group.setLayout(prefix_suffix_layout)
-        layout.addWidget(prefix_suffix_group)
-        
-        # Options section
-        options_group = QGroupBox("Options")
-        options_layout = QVBoxLayout()
-        
-        parity_label = QLabel("Seat Filter:")
-        parity_combo = QComboBox()
-        parity_combo.addItems(["All", "Even", "Odd"])
-        options_layout.addWidget(parity_label)
-        options_layout.addWidget(parity_combo)
-        
-        continuous_checkbox = QCheckBox("Continuous Numbering")
-        continuous_checkbox.setToolTip("Number seats sequentially across all rows.")
-        options_layout.addWidget(continuous_checkbox)
-        
-        options_group.setLayout(options_layout)
-        layout.addWidget(options_group)
-        
-        # Buttons
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        
+
+        dialog = AddCustomRowsDialog(self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        
-        # Get input values
-        rows_text_value = rows_input.toPlainText().strip()
-        start_seat = start_seat_input.text().strip()
-        end_seat = end_seat_input.text().strip()
-        prefix = prefix_input.text() or ""
-        suffix = suffix_input.text() or ""
-        parity = parity_combo.currentText().lower()
-        continuous = continuous_checkbox.isChecked()
-        
-        if not rows_text_value or not start_seat or not end_seat:
+
+        data = dialog.get_values()
+        rows_raw = data["rows"]
+        start_seat = data["start_seat"]
+        end_seat = data["end_seat"]
+
+        if not rows_raw or not start_seat or not end_seat:
             QMessageBox.warning(self, "Missing Input", "Please fill in all fields.")
             return
-        
-        # Parse rows from text (one per line, strip whitespace, apply prefix/suffix)
-        rows_raw = [line.strip() for line in rows_text_value.split('\n') if line.strip()]
-        rows = [f"{prefix}{r}{suffix}" for r in rows_raw]
+
+        rows = [f"{data['row_prefix']}{r}{data['row_suffix']}" for r in rows_raw]
 
         # Use SeatService for undo/redo support
         if not self.seat_service:
             return
-        
+
         result = self.seat_service.add_rows_bulk(
             self.section.name,
             rows=rows,
             start_seat=start_seat,
             end_seat=end_seat,
-            parity=parity,
-            continuous=continuous
+            parity=data["parity"],
+            continuous=data["continuous"]
         )
-        
+
         if result.is_success():
             self.load_section(self.section)
             self.sectionModified.emit()

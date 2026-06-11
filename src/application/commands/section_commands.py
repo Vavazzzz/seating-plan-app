@@ -1,6 +1,5 @@
 """Commands for section-level operations."""
 
-import copy
 from typing import List, Optional
 
 from domain.models.seating_plan import SeatingPlan
@@ -31,7 +30,6 @@ class AddSectionCommand(Command):
             raise ValidationError(f"Section '{self.section_name}' already exists")
         
         self.seating_plan.add_section(self.section_name, is_ga=self.is_ga)
-        self._executed = True
     
     def undo(self) -> None:
         """Remove the section."""
@@ -57,13 +55,11 @@ class DeleteSectionCommand(Command):
         """Delete the section."""
         if self.section_name not in self.seating_plan.sections:
             raise ValidationError(f"Section '{self.section_name}' not found")
-        
-        # Save section for undo
-        self._saved_section = copy.deepcopy(
-            self.seating_plan.sections[self.section_name]
-        )
+
+        # Keep the removed Section object itself; deletion only unlinks it
+        # from the plan, so the reference is an exact snapshot for undo.
+        self._saved_section = self.seating_plan.sections[self.section_name]
         self.seating_plan.delete_section(self.section_name)
-        self._executed = True
     
     def undo(self) -> None:
         """Restore the section."""
@@ -95,7 +91,6 @@ class RenameSectionCommand(Command):
             raise ValidationError(f"Section '{self.new_name}' already exists")
         
         self.seating_plan.rename_section(self.old_name, self.new_name)
-        self._executed = True
     
     def undo(self) -> None:
         """Restore original name."""
@@ -126,7 +121,6 @@ class CloneSectionCommand(Command):
             raise ValidationError(f"Section '{self.clone_name}' already exists")
         
         self.seating_plan.clone_section(self.source_name, self.clone_name)
-        self._executed = True
     
     def undo(self) -> None:
         """Delete the cloned section."""
@@ -160,7 +154,6 @@ class CloneSectionManyCommand(Command):
             self.source_name,
             self.count
         )
-        self._executed = True
     
     def undo(self) -> None:
         """Delete all created clones."""
@@ -194,30 +187,23 @@ class MergeSectionsCommand(Command):
         self.target_name = target_name
         self.delete_sources = delete_sources
         self._saved_sections: dict = {}
-        self._target_saved: Optional[Section] = None
-    
+
     def execute(self) -> None:
         """Merge the sections."""
         if len(self.source_names) < 2:
             raise ValidationError("At least 2 sections required for merge")
-        
-        # Check if target exists and save it if it does
-        if self.target_name in self.seating_plan.sections:
-            self._target_saved = copy.deepcopy(
-                self.seating_plan.sections[self.target_name]
-            )
-        
-        # Save sources for undo
+
+        # Keep references to the source Section objects; the merge builds a
+        # brand-new target section and never mutates the sources, so the
+        # references are exact snapshots for undo.
         for name in self.source_names:
             if name not in self.seating_plan.sections:
                 raise ValidationError(f"Source section '{name}' not found")
-            self._saved_sections[name] = copy.deepcopy(
-                self.seating_plan.sections[name]
-            )
-        
+            self._saved_sections[name] = self.seating_plan.sections[name]
+
         try:
             self.seating_plan.merge_sections(self.source_names, self.target_name)
-            
+
             # Delete sources if requested
             if self.delete_sources:
                 for name in self.source_names:
@@ -225,20 +211,13 @@ class MergeSectionsCommand(Command):
                         self.seating_plan.delete_section(name)
         except MergeConflictError as e:
             raise ValidationError(f"Cannot merge: {str(e)}") from e
-        
-        self._executed = True
-    
+
     def undo(self) -> None:
-        """Restore merged sections and remove merged result."""
-        # Delete the target section (or restore it if it existed before)
-        if self._target_saved is not None:
-            # Target existed before - restore it
-            self.seating_plan.sections[self.target_name] = self._target_saved
-        else:
-            # Target was created by merge - delete it
-            if self.target_name in self.seating_plan.sections:
-                self.seating_plan.delete_section(self.target_name)
-        
+        """Remove the merged result and restore the source sections."""
+        # The target was created by the merge (it must not pre-exist).
+        if self.target_name in self.seating_plan.sections:
+            self.seating_plan.delete_section(self.target_name)
+
         # Restore original source sections
         for name, section in self._saved_sections.items():
             self.seating_plan.sections[name] = section

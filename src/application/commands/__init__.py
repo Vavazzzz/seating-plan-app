@@ -10,11 +10,11 @@ from .section_commands import (
     MergeSectionsCommand,
 )
 from .seat_commands import (
-    AddSeatCommand,
-    DeleteSeatCommand,
     DeleteRowCommand,
-    AddSeatRangeCommand,
     DeleteSeatsCommand,
+    AddRowsCommand,
+    MoveSeatsCommand,
+    RenumberRowsCommand,
 )
 
 __all__ = [
@@ -25,9 +25,9 @@ __all__ = [
     "CloneSectionCommand",
     "CloneSectionManyCommand",
     "MergeSectionsCommand",
-    "AddSeatCommand",
-    "DeleteSeatCommand",
     "DeleteRowCommand",
-    "AddSeatRangeCommand",
     "DeleteSeatsCommand",
+    "AddRowsCommand",
+    "MoveSeatsCommand",
+    "RenumberRowsCommand",
 ]

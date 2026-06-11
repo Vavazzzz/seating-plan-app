@@ -69,21 +69,6 @@ class Result(Generic[T, E]):
         """Get the failure error as a property. Raises if success."""
         return self.get_error()
     
-    def map(self, func) -> 'Result':
-        """Transform the value if success, otherwise return failure."""
-        if self.is_success():
-            try:
-                return Result.success(func(self._value))
-            except Exception as e:
-                return Result.failure(str(e))
-        return self
-    
-    def flat_map(self, func) -> 'Result':
-        """Transform the value into a Result if success, otherwise return failure."""
-        if self.is_success():
-            return func(self._value)
-        return self
-    
     def __repr__(self) -> str:
         if self.is_success():
             return f"Result.success({self._value!r})"

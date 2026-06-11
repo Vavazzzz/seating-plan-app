@@ -9,9 +9,10 @@ from .section_dialogs import (
     CloneSectionManyDialog,
 )
 from .seat_dialogs import (
-    AddSeatDialog,
-    AddSeatRangeDialog,
     NewPlanDialog,
+    RangeInputDialog,
+    AddCustomRowsDialog,
+    RenumberRowsDialog,
     FileDialog,
 )
 
@@ -23,8 +24,9 @@ __all__ = [
     "MergeSectionsDialog",
     "CloneSectionDialog",
     "CloneSectionManyDialog",
-    "AddSeatDialog",
-    "AddSeatRangeDialog",
     "NewPlanDialog",
+    "RangeInputDialog",
+    "AddCustomRowsDialog",
+    "RenumberRowsDialog",
     "FileDialog",
 ]

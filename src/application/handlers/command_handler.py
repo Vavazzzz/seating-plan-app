@@ -109,9 +109,3 @@ class CommandHandler:
         """Clear all undo/redo history."""
         self.undo_stack.clear()
         self.redo_stack.clear()
-    
-    def get_history_summary(self) -> str:
-        """Get summary of command history."""
-        undo_cmds = ", ".join([cmd.description for cmd in self.undo_stack[-5:]])
-        redo_cmds = ", ".join([cmd.description for cmd in self.redo_stack[-5:]])
-        return f"Undo: [{undo_cmds}], Redo: [{redo_cmds}]"

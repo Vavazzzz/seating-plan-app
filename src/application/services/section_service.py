@@ -219,8 +219,8 @@ class SectionService(BaseService):
         self.clear_validation_errors()
         
         # Validation
-        if not source_names:
-            self.validate(False, "At least one source section must be provided")
+        if not source_names or len(source_names) < 2:
+            self.validate(False, "At least two source sections must be provided")
         elif not target_name or not target_name.strip():
             self.validate(False, "New section name cannot be empty")
         elif target_name in self.seating_plan.sections:
@@ -259,14 +259,3 @@ class SectionService(BaseService):
             List of section names in insertion order
         """
         return list(self.seating_plan.sections.keys())
-    
-    def section_exists(self, name: str) -> bool:
-        """Check if a section exists.
-        
-        Args:
-            name: Section name to check
-            
-        Returns:
-            True if section exists, False otherwise
-        """
-        return name in self.seating_plan.sections
