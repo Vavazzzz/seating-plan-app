@@ -14,7 +14,6 @@ class SeatingPlan:
     def add_section(self, name: str, is_ga: bool = False) -> None:
         if name not in self.sections:
             self.sections[name] = Section(name, is_ga=is_ga)
-            self.sections[name].is_ga = is_ga
 
     def delete_section(self, name: str) -> None:
         self.sections.pop(name, None)

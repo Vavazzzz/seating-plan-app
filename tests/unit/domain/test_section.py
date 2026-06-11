@@ -88,6 +88,22 @@ def test_clone_section():
     assert "3-A" in s2.seats
 
 
+def test_clone_preserves_ga_flag():
+    """Cloning a general admission section must keep is_ga set."""
+    ga = Section("Lawn", is_ga=True)
+    assert ga.clone().is_ga is True
+
+    reserved = Section("Stalls", is_ga=False)
+    assert reserved.clone().is_ga is False
+
+
+def test_renumber_rows_empty_input_returns_empty_mapping():
+    s = Section("A")
+    s.add_seat("1", "A")
+    assert s.renumber_rows([], "1") == {}
+    assert "1-A" in s.seats
+
+
 def test_section_seat_count():
     """Test getting accurate seat count."""
     s = Section("A")

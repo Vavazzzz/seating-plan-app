@@ -1,6 +1,5 @@
 from typing import Dict, Union
 from collections import defaultdict
-import copy
 from .seat import Seat
 from domain.utils.alphanum_handler import alphanum_range, to_index, from_index
 
@@ -108,7 +107,7 @@ class Section:
             new_key = f"{row}-{new_seat_number}"
             self.seats[new_key] = seat
 
-    def renumber_rows(self, old_rows_ordered: list[str], new_start_row: str, add_prefix: bool = False):
+    def renumber_rows(self, old_rows_ordered: list[str], new_start_row: str, add_prefix: bool = False) -> dict[str, str]:
         """
         Renumber multiple rows sequentially starting from new_start_row.
         
@@ -117,9 +116,9 @@ class Section:
             new_start_row:  Starting row number (can be numeric or alphanumeric)
             add_prefix: If True, add '#' prefix to all new row numbers
         """
-        if not old_rows_ordered: 
-            return
-        
+        if not old_rows_ordered:
+            return {}
+
         # Determine if we're working with digits or letters
         is_digit = new_start_row.isdigit()
         start_idx = to_index(new_start_row)
@@ -144,7 +143,7 @@ class Section:
             old_row = seat.row_number
             if old_row in row_mapping:
                 new_row = row_mapping[old_row]
-                _, seat_number = old_key. split('-', 1)
+                _, seat_number = old_key.split('-', 1)
                 new_key = f"{new_row}-{seat_number}"
                 changes.append((old_key, new_key, new_row))
         
@@ -159,9 +158,9 @@ class Section:
 
     def clone(self) -> 'Section':
         """Return a deep copy of this section with '_copy' appended to name."""
-        new_section = Section(self.name + "_copy")
+        new_section = Section(self.name + "_copy", is_ga=self.is_ga)
         for key, seat in self.seats.items():
-            new_section.seats[key] = copy.deepcopy(seat)
+            new_section.seats[key] = Seat(seat.row_number, seat.seat_number)
         return new_section
 
     # ---- Serialization (JSON) ----
