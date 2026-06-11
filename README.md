@@ -133,6 +133,8 @@ seating-plan-app/
 │   │   │   ├── seating_plan.py      # SeatingPlan aggregate
 │   │   │   ├── section.py           # Section entity
 │   │   │   └── seat.py              # Seat value object
+│   │   ├── utils/
+│   │   │   └── alphanum_handler.py  # Alphanumeric sort and range utilities
 │   │   └── exceptions.py            # Domain exceptions
 │   │
 │   ├── application/                 # Use cases and services
@@ -158,20 +160,17 @@ seating-plan-app/
 │   │   │   ├── excel_importer.py
 │   │   │   ├── excel_exporter.py
 │   │   │   └── avail_importer.py
-│   │   ├── persistence/
-│   │   │   ├── abstract.py          # SeatingPlanRepository interface
-│   │   │   └── json_repository.py
-│   │   └── utils/
-│   │       └── alphanum_handler.py  # Alphanumeric sort and range utilities
+│   │   └── persistence/
+│   │       ├── abstract.py          # SeatingPlanRepository interface
+│   │       └── json_repository.py
 │   │
 │   └── ui/                          # PyQt6 presentation layer
-│       ├── main_window_refactored.py # Main window
+│       ├── main_window.py            # Main window
 │       ├── section_view.py           # Section graphics view
 │       ├── dialogs/
 │       │   ├── base.py               # InputDialog, CheckboxDialog
 │       │   ├── section_dialogs.py    # Section operation dialogs
-│       │   ├── seat_dialogs.py       # Seat operation dialogs
-│       │   └── dialogs.py            # Range and renumber dialogs
+│       │   └── seat_dialogs.py       # Seat, row-range, and file dialogs
 │       └── widgets/
 │           ├── base.py               # BasePanel
 │           └── sections_panel.py     # Sections management panel

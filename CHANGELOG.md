@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - refactor-plan branch
 
+### Added (codebase cleanup)
+- `LICENSE` file (MIT), previously referenced by README but missing
+- CI now runs the test suite before building (develop and release workflows)
+- Regression tests: `Section.clone()` GA flag, empty `renumber_rows()` input, `CommandHandler`-based undo/redo
+
+### Fixed (codebase cleanup)
+- `Section.clone()` dropped the General Admission flag — cloned GA sections silently became regular sections
+- Undo history is now cleared on New/Open/Import; previously stale commands from the old plan could still be undone
+- `test_sorting_logic_consistency` never ran (missing import) and encoded a wrong expected order
+- `Section.renumber_rows()` returned `None` for empty input, which would crash `RenumberRowsCommand.undo()`
+- Merge validation now requires at least two source sections, matching the domain model
+
+### Removed (codebase cleanup)
+- Dead files: `src/ui/styles/theme.qss` (never loaded), `requirements/api.txt` (no API exists), `CLEANUP_REPORT.md`, `MIGRATION_GUIDE.md` (historical one-off reports), leftover `src/utils/` byte-code remnants
+- Dead code: `AddSeatCommand`, `DeleteSeatCommand`, `AddSeatRangeCommand` and the unused `SeatService` methods that wrapped them; `AddSeatDialog`, `AddSeatRangeDialog`; `aboutToModify` signal; `Result.map/flat_map`; `CommandHandler.get_history_summary`; `Command.timestamp`/`is_executed`; unused exceptions `SectionNotFoundError`, `DuplicateNameError`, `InvalidStateError`; `SectionService.section_exists`
+
+### Changed (codebase cleanup)
+- `main_window_refactored.py` / `RefactoredMainWindow` renamed to `main_window.py` / `MainWindow` (legacy counterpart no longer exists)
+- `ui/dialogs/dialogs.py` dissolved: `RangeInputDialog` (row mode only) and `RenumberRowsDialog` moved to `seat_dialogs.py`
+- The inline "Add Custom Rows" dialog in `SectionView` extracted to `AddCustomRowsDialog` in `seat_dialogs.py`
+- Section commands snapshot via object references instead of `copy.deepcopy`
+- Docs (README, USER_GUIDE, DEVELOPER_GUIDE) rewritten/corrected to match the current codebase; poetry dependencies completed; `.gitignore` `*.json` rule scoped to the repo root
+
 ### Added
 - `CloneSectionManyDialog` and "Clone ×N" button — clone a section N times with auto-incremented names
 - `MoveSeatsCommand` and `SeatService.move_seats()` — atomic, undoable seat move between sections
