@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QSplitter,
     QLabel, QMessageBox, QDialog
 )
-from PyQt6.QtGui import QAction, QKeySequence
+from PyQt6.QtGui import QAction, QKeySequence, QCloseEvent
 
 from domain.models.seating_plan import SeatingPlan
 from application.handlers import CommandHandler
@@ -54,7 +54,8 @@ class RefactoredMainWindow(QMainWindow):
         self.seat_service = SeatService(self.seating_plan, self.command_handler)
         
         self.current_project_path = None
-        
+        self._is_dirty = False
+
         # Build UI
         self._create_ui()
         self._create_menu_bar()
@@ -173,11 +174,15 @@ class RefactoredMainWindow(QMainWindow):
 
         self.sections_panel.set_error_callback(on_error)
         self.sections_panel.set_success_callback(on_success)
+
+        self.command_handler.on_command_executed = lambda _: self._mark_dirty()
+        self.command_handler.on_command_undone = lambda _: self._mark_dirty()
+        self.command_handler.on_command_redone = lambda _: self._mark_dirty()
     
     def _refresh_ui(self) -> None:
         """Refresh all UI elements."""
         info = self.plan_service.get_plan_info()
-        self.setWindowTitle(f"Seating Plan: {info['name']}")
+        self._update_title(info['name'])
         self.sections_panel.refresh()
         self.status_label.setText(
             f"{info['sections']} sections, {info['total_seats']} seats"
@@ -190,10 +195,54 @@ class RefactoredMainWindow(QMainWindow):
             self.section_view.load_section(section)
         self._update_section_info(0)
     
+    # Dirty-state tracking
+
+    def _update_title(self, plan_name: str | None = None) -> None:
+        if plan_name is None:
+            plan_name = self.plan_service.get_plan_info()['name']
+        prefix = "*" if self._is_dirty else ""
+        self.setWindowTitle(f"{prefix}Seating Plan: {plan_name}")
+
+    def _mark_dirty(self) -> None:
+        if not self._is_dirty:
+            self._is_dirty = True
+            self._update_title()
+
+    def _mark_clean(self) -> None:
+        self._is_dirty = False
+        self._update_title()
+
+    def _confirm_discard_changes(self) -> bool:
+        if not self._is_dirty:
+            return True
+        reply = QMessageBox.question(
+            self,
+            "Unsaved Changes",
+            f'Save changes to "{self.seating_plan.name}"?',
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Save,
+        )
+        if reply == QMessageBox.StandardButton.Save:
+            self._save_plan()
+            return not self._is_dirty  # True only if save succeeded
+        if reply == QMessageBox.StandardButton.Discard:
+            return True
+        return False  # Cancel
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self._confirm_discard_changes():
+            event.accept()
+        else:
+            event.ignore()
+
     # File operations
-    
+
     def _new_plan(self) -> None:
         """Create a new plan."""
+        if not self._confirm_discard_changes():
+            return
         dialog = NewPlanDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             plan_name = dialog.get_value()
@@ -201,6 +250,7 @@ class RefactoredMainWindow(QMainWindow):
                 result = self.plan_service.create_new_plan(plan_name)
                 if result.is_success():
                     self.current_project_path = None
+                    self._mark_clean()
                     self._refresh_ui()
                     self.status_label.setText("New plan created")
                 else:
@@ -211,16 +261,19 @@ class RefactoredMainWindow(QMainWindow):
     
     def _open_plan(self) -> None:
         """Open a seating plan file."""
+        if not self._confirm_discard_changes():
+            return
         path = FileDialog.get_open_path(
             self,
             "Open Seating Plan",
             "Seating Files (*.json *.xlsx);;All Files (*)"
         )
-        
+
         if path:
             result = self.plan_service.load_seating_plan(path)
             if result.is_success():
                 self.current_project_path = path
+                self._mark_clean()
                 self._refresh_ui()
                 self.status_label.setText(f"Loaded: {Path(path).name}")
             else:
@@ -234,6 +287,7 @@ class RefactoredMainWindow(QMainWindow):
         
         result = self.plan_service.save_seating_plan(self.current_project_path)
         if result.is_success():
+            self._mark_clean()
             self.status_label.setText("Saved")
         else:
             QMessageBox.critical(self, "Error", f"Failed to save: {result.error}")
@@ -250,22 +304,26 @@ class RefactoredMainWindow(QMainWindow):
             result = self.plan_service.save_seating_plan(path)
             if result.is_success():
                 self.current_project_path = path
+                self._mark_clean()
                 self.status_label.setText(f"Saved: {Path(path).name}")
             else:
                 QMessageBox.critical(self, "Error", f"Failed to save: {result.error}")
     
     def _import_plan(self) -> None:
         """Import a seating plan from file."""
+        if not self._confirm_discard_changes():
+            return
         path = FileDialog.get_open_path(
             self,
             "Import Seating Plan",
             "All Formats (*.json *.xlsx *.xml);;JSON (*.json);;Excel (*.xlsx);;Avail (*.xml)"
         )
-        
+
         if path:
             result = self.plan_service.import_seating_plan(path)
             if result.is_success():
                 self.current_project_path = None
+                self._mark_clean()
                 self._refresh_ui()
                 self.status_label.setText(f"Imported: {Path(path).name}")
             else:
