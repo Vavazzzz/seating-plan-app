@@ -66,6 +66,8 @@ desktop.ini
 *.swp
 *.swo
 .ipynb_checkpoints/
-*.json
-*.seatproj
 to_do.txt
+
+# Seating plan files saved at the repo root during manual testing
+/*.json
+/*.seatproj
