@@ -1,4 +1,4 @@
-"""Refactored MainWindow using Application Services Layer."""
+"""MainWindow built on the application services layer."""
 
 from pathlib import Path
 from PyQt6.QtWidgets import (
@@ -26,12 +26,12 @@ from .section_view import SectionView
 from .dialogs import FileDialog, NewPlanDialog
 
 
-class RefactoredMainWindow(QMainWindow):
-    """Lean MainWindow using services layer (< 250 lines)."""
-    
+class MainWindow(QMainWindow):
+    """Lean MainWindow using the services layer."""
+
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Seating Plan Editor (Refactored)")
+        self.setWindowTitle("Seating Plan Editor")
         self.resize(1200, 800)
         
         # Initialize domain and services
@@ -250,6 +250,7 @@ class RefactoredMainWindow(QMainWindow):
                 result = self.plan_service.create_new_plan(plan_name)
                 if result.is_success():
                     self.current_project_path = None
+                    self.command_handler.clear_history()
                     self._mark_clean()
                     self._refresh_ui()
                     self.status_label.setText("New plan created")
@@ -273,6 +274,7 @@ class RefactoredMainWindow(QMainWindow):
             result = self.plan_service.load_seating_plan(path)
             if result.is_success():
                 self.current_project_path = path
+                self.command_handler.clear_history()
                 self._mark_clean()
                 self._refresh_ui()
                 self.status_label.setText(f"Loaded: {Path(path).name}")
@@ -323,6 +325,7 @@ class RefactoredMainWindow(QMainWindow):
             result = self.plan_service.import_seating_plan(path)
             if result.is_success():
                 self.current_project_path = None
+                self.command_handler.clear_history()
                 self._mark_clean()
                 self._refresh_ui()
                 self.status_label.setText(f"Imported: {Path(path).name}")
@@ -400,6 +403,6 @@ def main():
     from PyQt6.QtWidgets import QApplication
     
     app = QApplication(sys.argv)
-    window = RefactoredMainWindow()
+    window = MainWindow()
     window.show()
     sys.exit(app.exec())
