@@ -1,3 +1,5 @@
+import re
+
 from PyQt6.QtWidgets import (
     QWidget, QGraphicsView, QGraphicsScene, QVBoxLayout, QHBoxLayout, QPushButton,
     QGraphicsRectItem, QGraphicsSimpleTextItem, QSlider, QLabel, QFrame,
@@ -48,6 +50,7 @@ class SectionView(QWidget):
         self.scene = QGraphicsScene(self)
         self.view = ZoomableGraphicsView(self.scene, self)
         self.is_collapsed = False  # State for collapse/expand
+        self.is_split = False  # State for even/odd split view
 
         # Controls
         self.btn_add_row_range = QPushButton("\u2795 Add Row Range")
@@ -63,6 +66,9 @@ class SectionView(QWidget):
         self.btn_toggle_collapse = QPushButton("\U0001F4C9 Collapse Section")
         self.btn_toggle_collapse.setToolTip("Collapse section (stack all seats on top of each other).")
         self.btn_toggle_collapse.setCheckable(True)
+        self.btn_toggle_split = QPushButton("⇄ Split Even/Odd")
+        self.btn_toggle_split.setToolTip("Split section into odd and even seat banks with an aisle between.")
+        self.btn_toggle_split.setCheckable(True)
 
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.btn_add_row_range)
@@ -71,6 +77,7 @@ class SectionView(QWidget):
         controls_layout.addWidget(self.btn_delete_row)
         controls_layout.addWidget(self.btn_renumber_rows)
         controls_layout.addWidget(self.btn_toggle_collapse)
+        controls_layout.addWidget(self.btn_toggle_split)
         controls_layout.addStretch()
 
         # ---- Buttons shortcuts ----
@@ -118,6 +125,7 @@ class SectionView(QWidget):
         self.btn_delete_row.clicked.connect(self.delete_selected_rows)
         self.btn_renumber_rows.clicked.connect(self.renumber_selected_rows)
         self.btn_toggle_collapse.clicked.connect(self.toggle_collapse_section)
+        self.btn_toggle_split.clicked.connect(self.toggle_split_section)
 
         self.view.viewport().installEventFilter(self)
         self._updating_slider = False
@@ -166,8 +174,17 @@ class SectionView(QWidget):
         x_spacing = SeatItemRect.WIDTH + 5
         y_spacing = SeatItemRect.HEIGHT + 10
 
+        split_columns = None
+        total_width = len(all_seat_numbers) * x_spacing
+        if self.is_split and not self.is_collapsed:
+            split_columns, total_width, banks = self._build_split_columns(all_seat_numbers, x_spacing)
+            for label, start_x, count in banks:
+                header = self.scene.addSimpleText(label)
+                header_rect = header.boundingRect()
+                header.setPos(start_x + (count * x_spacing - header_rect.width()) / 2, -25)
+
         section_label = self.scene.addText(section.name)
-        section_label.setPos((len(all_seat_numbers) * x_spacing + 10) / 2, -50)
+        section_label.setPos((total_width + 10) / 2, -50)
 
         # Render seats
         y = 0
@@ -188,6 +205,17 @@ class SectionView(QWidget):
                     item = SeatItem(row, seat.seat_number)
                     item.setPos(x, y)
                     self.scene.addItem(item)
+            elif split_columns is not None:
+                # Split mode: odd bank mirrored on the left, aisle, even bank on the right
+                row_label_dx = self.scene.addSimpleText(str(row))
+                row_label_dx.setPos(total_width + 10, y)
+
+                for seat_num, x in split_columns.items():
+                    if seat_num in seats:
+                        seat = seats[seat_num]
+                        item = SeatItem(row, seat.seat_number)
+                        item.setPos(x, y)
+                        self.scene.addItem(item)
             else:
                 # Normal mode: align all rows to the same grid
                 row_label_dx = self.scene.addSimpleText(str(row))
@@ -205,10 +233,55 @@ class SectionView(QWidget):
         self.scene.setSceneRect(self.scene.itemsBoundingRect())
         self.position_zoom_overlay()
 
+    def _build_split_columns(
+        self, all_seat_numbers: list[str], x_spacing: int
+    ) -> tuple[dict[str, int], int, list[tuple[str, int, int]]]:
+        """Assign an x position to each seat number: odd bank descending toward
+        the aisle (so seat 1 faces seat 2), then even bank ascending, then any
+        seats without digits. Returns (seat_number -> x, total width, banks),
+        where each bank is (header label, start x, column count)."""
+        odds, evens, others = [], [], []
+        for seat_num in all_seat_numbers:
+            digits = re.search(r"\d+", seat_num)
+            if digits is None:
+                others.append(seat_num)
+            elif int(digits.group()) % 2 == 0:
+                evens.append(seat_num)
+            else:
+                odds.append(seat_num)
+
+        aisle = 2 * x_spacing
+        columns = {}
+        banks = []
+        x = 0
+        for label, bank in (("ODD", list(reversed(odds))), ("EVEN", evens), ("OTHER", others)):
+            if not bank:
+                continue
+            banks.append((label, x, len(bank)))
+            for seat_num in bank:
+                columns[seat_num] = x
+                x += x_spacing
+            x += aisle
+        total_width = x - aisle if banks else 0
+        return columns, total_width, banks
+
     def toggle_collapse_section(self):
         """Toggle between collapsed and normal view of the section."""
         self.is_collapsed = not self.is_collapsed
+        if self.is_collapsed and self.is_split:
+            self.is_split = False
+            self.btn_toggle_split.setChecked(False)
         self.btn_toggle_collapse.setChecked(self.is_collapsed)
+        if self.section:
+            self.load_section(self.section)
+
+    def toggle_split_section(self):
+        """Toggle between even/odd split and normal view of the section."""
+        self.is_split = not self.is_split
+        if self.is_split and self.is_collapsed:
+            self.is_collapsed = False
+            self.btn_toggle_collapse.setChecked(False)
+        self.btn_toggle_split.setChecked(self.is_split)
         if self.section:
             self.load_section(self.section)
 
