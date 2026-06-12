@@ -175,6 +175,7 @@ class SectionView(QWidget):
         y_spacing = SeatItemRect.HEIGHT + 10
 
         split_columns = None
+        aisle_center = None
         total_width = len(all_seat_numbers) * x_spacing
         if self.is_split and not self.is_collapsed:
             split_columns, total_width, banks = self._build_split_columns(all_seat_numbers, x_spacing)
@@ -182,6 +183,10 @@ class SectionView(QWidget):
                 header = self.scene.addSimpleText(label)
                 header_rect = header.boundingRect()
                 header.setPos(start_x + (count * x_spacing - header_rect.width()) / 2, -25)
+            if len(banks) >= 2:
+                # Center of the aisle between the first two banks
+                first_bank_end = banks[0][1] + banks[0][2] * x_spacing - 5
+                aisle_center = (first_bank_end + banks[1][1]) / 2
 
         section_label = self.scene.addText(section.name)
         section_label.setPos((total_width + 10) / 2, -50)
@@ -209,6 +214,12 @@ class SectionView(QWidget):
                 # Split mode: odd bank mirrored on the left, aisle, even bank on the right
                 row_label_dx = self.scene.addSimpleText(str(row))
                 row_label_dx.setPos(total_width + 10, y)
+
+                if aisle_center is not None:
+                    row_label_mid = self.scene.addSimpleText(str(row))
+                    mid_rect = row_label_mid.boundingRect()
+                    row_label_mid.setPos(aisle_center - mid_rect.width() / 2,
+                                         y + (SeatItemRect.HEIGHT - mid_rect.height()) / 2)
 
                 for seat_num, x in split_columns.items():
                     if seat_num in seats:
