@@ -394,7 +394,9 @@ class MainWindow(QMainWindow):
         self.sections_panel.select_section(section_name)
         if section_name in self.seating_plan.sections:
             self.section_view.load_section(self.seating_plan.sections[section_name])
-        self.section_view.add_row_range_dialog()
+        section = self.seating_plan.sections.get(section_name)
+        if not section.is_ga:
+            self.section_view.add_row_range_dialog()
 
 
 def main():
