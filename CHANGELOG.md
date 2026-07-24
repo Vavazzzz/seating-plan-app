@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2026-07-24
+
+### Added
+- Total seat count pinned below the sections table, summing seats across all sections and recalculating on every section-list refresh
+
+### Fixed
+- The row-range dialog no longer opens when a new General Admission section is created — GA sections have no rows, so the prompt was meaningless
+
 ## [Unreleased] - refactor-plan branch
 
 ### Added (codebase cleanup)
