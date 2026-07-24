@@ -2,7 +2,7 @@
 
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton,
-    QHeaderView, QAbstractItemView, QDialog
+    QHeaderView, QAbstractItemView, QDialog, QLabel
 )
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtCore import pyqtSignal, Qt
@@ -61,7 +61,23 @@ class SectionsPanel(BasePanel):
         self.sections_table.itemSelectionChanged.connect(self._on_selection_changed)
         self.sections_table.itemChanged.connect(self._on_checkbox_changed)
         layout.addWidget(self.sections_table)
-        
+
+        # Total seat count, pinned below the table
+        total_row = QHBoxLayout()
+        bold = self.font()
+        bold.setBold(True)
+        total_label = QLabel("TOTAL")
+        total_label.setObjectName("sectionsTotalLabel")
+        total_label.setFont(bold)
+        total_row.addWidget(total_label)
+        total_row.addStretch()
+        self.total_seats_label = QLabel("0")
+        self.total_seats_label.setObjectName("sectionsTotalCount")
+        self.total_seats_label.setFont(bold)
+        self.total_seats_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        total_row.addWidget(self.total_seats_label)
+        layout.addLayout(total_row)
+
         # Buttons — row 1
         button_row1 = QHBoxLayout()
         addsec_btn = QPushButton("Add Section")
@@ -115,6 +131,8 @@ class SectionsPanel(BasePanel):
         prev_checks = dict(self.section_checks)
         self.section_checks = {}
         
+        total_seats = 0
+
         self._suppress_checkbox_signals = True
         try:
             for row, section_name in enumerate(sections):
@@ -136,11 +154,14 @@ class SectionsPanel(BasePanel):
                 count_item = QTableWidgetItem(str(seat_count))
                 count_item.setFlags(count_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.sections_table.setItem(row, 2, count_item)
-                
+                total_seats += seat_count
+
                 # Update checkbox tracking
                 self.section_checks[section_name] = (checked == Qt.CheckState.Checked)
         finally:
             self._suppress_checkbox_signals = False
+
+        self.total_seats_label.setText(str(total_seats))
     
     def get_selected_section(self) -> Optional[str]:
         """Get the currently selected section name for display."""
