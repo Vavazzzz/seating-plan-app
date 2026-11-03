@@ -582,6 +582,21 @@ class SectionView(QWidget):
                 it.setSelected(True)
         self.on_selection_changed()
 
+    def toggle_row_selection(self, row_number: str, additive: bool = False) -> None:
+        """Select a whole row, or deselect it if it is already fully selected.
+
+        additive keeps the rest of the selection; otherwise the row replaces it.
+        """
+        row_items = [it for it in self.scene.items() if isinstance(it, SeatItem) and it.row == row_number]
+        if all(it.isSelected() for it in row_items):
+            for it in row_items:
+                it.setSelected(False)
+            self.on_selection_changed()
+            return
+        if not additive:
+            self.scene.clearSelection()
+        self.select_all_in_row(row_number)
+
     def deselect_all_seats(self):
         """Deselect all seats."""
         self.scene.clearSelection()
@@ -645,7 +660,20 @@ class ZoomableGraphicsView(QGraphicsView):
             self.show_seat_context_menu(global_pos)
             event.accept()
             return
-        
+
+        # Shift+click selects the whole row (replacing the selection); Ctrl+Shift+click adds it
+        if (event.button() == Qt.MouseButton.LeftButton
+                and event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+            clicked_item = self.itemAt(event.pos())
+            # Clicks on the seat label hit the child text item
+            if clicked_item is not None and not isinstance(clicked_item, SeatItem):
+                clicked_item = clicked_item.parentItem()
+            if isinstance(clicked_item, SeatItem):
+                additive = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+                self.section_view.toggle_row_selection(clicked_item.row, additive)
+                event.accept()
+                return
+
         # Start panning when middle button (mouse wheel) is pressed
         if event.button() == Qt.MouseButton.MiddleButton:
             self._panning = True
