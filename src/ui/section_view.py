@@ -550,14 +550,6 @@ class SectionView(QWidget):
         if result.is_success():
             self.load_section(self.section)
             self.sectionModified.emit()
-
-            # Show success message with details
-            unnumbered_text = " (Unnumbered)" if is_unnumbered else ""
-            QMessageBox.information(
-                self,
-                "Success",
-                f"{result.value} seats renumbered successfully!{unnumbered_text}\nStarting from: {new_start}"
-            )
         else:
             QMessageBox.critical(self, "Error", f"Failed to renumber rows:\n{result.error}")
 
