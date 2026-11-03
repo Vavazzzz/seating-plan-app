@@ -62,7 +62,7 @@ class SectionView(QWidget):
         self.btn_delete_row = QPushButton("\U0001F5D1 Delete Rows")
         self.btn_delete_row.setToolTip("Delete selected rows (by selecting seats in those rows).")
         self.btn_renumber_rows = QPushButton("\U0001F503 Renumber Rows")
-        self.btn_renumber_rows.setToolTip("Renumber rows sequentially (not implemented).")
+        self.btn_renumber_rows.setToolTip("Move selected seats to sequentially renumbered rows.")
         self.btn_toggle_collapse = QPushButton("\U0001F4C9 Collapse Section")
         self.btn_toggle_collapse.setToolTip("Collapse section (stack all seats on top of each other).")
         self.btn_toggle_collapse.setCheckable(True)
@@ -507,28 +507,22 @@ class SectionView(QWidget):
             QMessageBox.warning(self, "Error", f"Failed to delete some rows:\n{error_msg}")
 
     def renumber_selected_rows(self):
-        """Renumber selected rows with user-specified starting row."""
-        if not self.section: 
+        """Move selected seats to renumbered rows, starting from a user-specified row."""
+        if not self.section:
             return
-        
+
         # Get selected seats
         selected = [item for item in self.scene.selectedItems() if isinstance(item, SeatItem)]
-        if not selected:  
+        if not selected:
             QMessageBox.warning(self, "No Selection", "Please select seats to renumber their rows.")
             return
-        
-        # Extract unique rows from selected seats, maintaining order of appearance
-        selected_rows = []
-        seen = set()
-        for item in selected:
-            if item.row not in seen:
-                selected_rows.append(item.row)
-                seen.add(item.row)
-        
-        if not selected_rows:
-            return
-        
-        sorted_rows = sorted(selected_rows, key=alphanum_sort_key)
+
+        # Sort by row so rows are renumbered in natural order
+        seats = sorted(
+            {(item.row, item.seat) for item in selected},
+            key=lambda rs: (alphanum_sort_key(rs[0]), alphanum_sort_key(rs[1])),
+        )
+        sorted_rows = list(dict.fromkeys(row for row, _ in seats))
 
         # Show dialog
         dialog = RenumberRowsDialog(sorted_rows, self)
@@ -548,24 +542,24 @@ class SectionView(QWidget):
         
         result = self.seat_service.renumber_rows(
             self.section.name,
-            sorted_rows,
+            seats,
             new_start,
             add_prefix=is_unnumbered
         )
-        
+
         if result.is_success():
             self.load_section(self.section)
             self.sectionModified.emit()
-            
+
             # Show success message with details
             unnumbered_text = " (Unnumbered)" if is_unnumbered else ""
             QMessageBox.information(
-                self, 
-                "Success", 
-                f"Rows renumbered successfully!{unnumbered_text}\nStarting from: {new_start}"
+                self,
+                "Success",
+                f"{result.value} seats renumbered successfully!{unnumbered_text}\nStarting from: {new_start}"
             )
         else:
-            QMessageBox.critical(self, "Error", f"Failed to renumber rows: {result.error}")
+            QMessageBox.critical(self, "Error", f"Failed to renumber rows:\n{result.error}")
 
     # ---------- Selection ----------
     def on_selection_changed(self):

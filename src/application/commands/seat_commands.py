@@ -186,37 +186,31 @@ class MoveSeatsCommand(Command):
 
 
 class RenumberRowsCommand(Command):
-    """Command to renumber rows in a section."""
+    """Command to move selected seats to renumbered rows in a section."""
 
     def __init__(
         self,
         section: Section,
-        old_rows: List[str],
+        seats: list[tuple[str, str]],
         new_start_row: str,
         add_prefix: bool = False,
     ):
-        super().__init__(f"Renumber {len(old_rows)} rows starting from {new_start_row}")
+        super().__init__(f"Renumber {len(seats)} seats starting from {new_start_row}")
         self.section = section
-        self.old_rows = old_rows
+        self.seats = seats
         self.new_start_row = new_start_row
         self.add_prefix = add_prefix
-        self._row_mapping: dict[str, str] = {}  # old_row -> new_row, captured at execute time
+        self._moved: list[tuple[str, str, str]] = []  # (old_row, seat_number, new_row), captured at execute time
 
     def execute(self) -> None:
-        self._row_mapping = self.section.renumber_rows(self.old_rows, self.new_start_row, self.add_prefix)
+        self._moved = self.section.renumber_seats(self.seats, self.new_start_row, self.add_prefix)
 
     def undo(self) -> None:
-        reverse: dict[str, str] = {new: old for old, new in self._row_mapping.items()}
-        changes = []
-        for new_key in list(self.section.seats.keys()):
-            seat = self.section.seats[new_key]
-            if seat.row_number in reverse:
-                old_row = reverse[seat.row_number]
-                _, seat_number = new_key.split('-', 1)
-                old_key = f"{old_row}-{seat_number}"
-                changes.append((new_key, old_key, old_row))
-        for new_key, old_key, old_row in changes:
-            seat = self.section.seats[new_key]
+        # Pop all first so seats moving back into each other's slots don't clobber
+        popped = [
+            (old_row, num, self.section.seats.pop(f"{new_row}-{num}"))
+            for old_row, num, new_row in self._moved
+        ]
+        for old_row, num, seat in popped:
             seat.row_number = old_row
-            self.section.seats[old_key] = seat
-            del self.section.seats[new_key]
+            self.section.seats[f"{old_row}-{num}"] = seat

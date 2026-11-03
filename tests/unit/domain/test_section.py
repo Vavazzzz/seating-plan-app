@@ -1,3 +1,6 @@
+import pytest
+
+from domain.exceptions import ValidationError
 from domain.models.section import Section
 
 
@@ -102,6 +105,56 @@ def test_renumber_rows_empty_input_returns_empty_mapping():
     s.add_seat("1", "A")
     assert s.renumber_rows([], "1") == {}
     assert "1-A" in s.seats
+
+
+def test_renumber_seats_moves_only_selected_seats():
+    s = Section("A")
+    s.add_seat_range("A", "1", "4")
+    moved = s.renumber_seats([("A", "1"), ("A", "2")], "5")
+    assert moved == [("A", "1", "5"), ("A", "2", "5")]
+    assert set(s.seats) == {"5-1", "5-2", "A-3", "A-4"}
+    assert s.seats["5-1"].row_number == "5"
+
+
+def test_renumber_seats_maps_rows_sequentially():
+    s = Section("A")
+    s.add_seat("A", "1")
+    s.add_seat("C", "1")
+    s.renumber_seats([("A", "1"), ("C", "1")], "1")
+    assert set(s.seats) == {"1-1", "2-1"}
+
+
+def test_renumber_seats_with_prefix():
+    s = Section("A")
+    s.add_seat("A", "1")
+    s.renumber_seats([("A", "1")], "1", add_prefix=True)
+    assert set(s.seats) == {"#1-1"}
+
+
+def test_renumber_seats_conflict_raises_and_leaves_section_unchanged():
+    s = Section("A")
+    s.add_seat_range("A", "1", "3")
+    s.add_seat_range("B", "2", "3")
+    with pytest.raises(ValidationError) as exc:
+        s.renumber_seats([("A", "1"), ("A", "2"), ("A", "3")], "B")
+    assert exc.value.errors == ["B-2", "B-3"]
+    assert set(s.seats) == {"A-1", "A-2", "A-3", "B-2", "B-3"}
+
+
+def test_renumber_seats_into_slots_vacated_by_other_moved_seats():
+    s = Section("A")
+    s.add_seat("1", "A")
+    s.add_seat("2", "A")
+    s.renumber_seats([("1", "A"), ("2", "A")], "2")
+    assert set(s.seats) == {"2-A", "3-A"}
+    assert len(s.seats) == 2
+
+
+def test_renumber_seats_ignores_missing_seats():
+    s = Section("A")
+    s.add_seat("1", "A")
+    assert s.renumber_seats([("9", "Z")], "1") == []
+    assert set(s.seats) == {"1-A"}
 
 
 def test_section_seat_count():

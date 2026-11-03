@@ -1,6 +1,7 @@
 """Service for seat-level operations."""
 
 from typing import List, Tuple
+from domain.exceptions import ValidationError
 from .base import BaseService
 from ..result import Result, ValidationErrors
 from ..commands.seat_commands import (
@@ -205,20 +206,21 @@ class SeatService(BaseService):
     def renumber_rows(
         self,
         section_name: str,
-        old_rows: List[str],
+        seats: list[tuple[str, str]],
         new_start_row: str,
         add_prefix: bool = False,
-    ) -> Result[None, ValidationErrors]:
-        """Renumber rows in a section.
+    ) -> Result[int, ValidationErrors]:
+        """Move the given seats to sequentially renumbered rows.
 
         Args:
             section_name: Name of section
-            old_rows: List of old row numbers to renumber (in order)
+            seats: (row, seat_number) pairs to move; their rows are renumbered in order
             new_start_row: Starting row number for new numbering
             add_prefix: If True, add '#' prefix to all new row numbers
 
         Returns:
-            Result.success() on success, validation errors on failure
+            Result.success(number of seats moved), or validation errors on failure
+            (one error per target seat that already exists)
         """
         self.clear_validation_errors()
 
@@ -227,8 +229,8 @@ class SeatService(BaseService):
             self.validate(False, "Section name cannot be empty")
         elif section_name not in self.seating_plan.sections:
             self.validate(False, f"Section '{section_name}' not found")
-        elif not old_rows:
-            self.validate(False, "At least one row must be specified")
+        elif not seats:
+            self.validate(False, "At least one seat must be specified")
         elif not new_start_row or not new_start_row.strip():
             self.validate(False, "Starting row number cannot be empty")
 
@@ -237,9 +239,13 @@ class SeatService(BaseService):
 
         try:
             section = self.seating_plan.sections[section_name]
-            cmd = RenumberRowsCommand(section, old_rows, new_start_row, add_prefix)
+            cmd = RenumberRowsCommand(section, seats, new_start_row, add_prefix)
             self.command_handler.execute(cmd)
-            return Result.success(None)
+            return Result.success(len(cmd._moved))
+        except ValidationError as e:
+            errors = ValidationErrors()
+            errors.add_many([f"Seat {key} already exists" for key in e.errors])
+            return Result.failure(errors)
         except Exception as e:
             errors = ValidationErrors()
             errors.add(f"Failed to renumber rows: {str(e)}")

@@ -200,7 +200,7 @@ class RenumberRowsDialog(QDialog):
         layout.addRow("", self.is_unnumbered_checkbox)
 
         # Info label
-        info = QLabel("Rows will be numbered sequentially from the starting number.")
+        info = QLabel("Selected seats will be moved to rows numbered sequentially from the starting number.")
         info.setStyleSheet("color: gray; font-size: 10px;")
         layout.addRow("", info)
 

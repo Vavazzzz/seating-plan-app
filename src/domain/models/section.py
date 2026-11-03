@@ -1,6 +1,7 @@
 from typing import Dict, Union
 from collections import defaultdict
 from .seat import Seat
+from domain.exceptions import ValidationError
 from domain.utils.alphanum_handler import alphanum_range, to_index, from_index
 
 class Section:
@@ -155,6 +156,62 @@ class Section:
             del self.seats[old_key]
 
         return row_mapping
+
+    def renumber_seats(
+        self, seats: list[tuple[str, str]], new_start_row: str, add_prefix: bool = False
+    ) -> list[tuple[str, str, str]]:
+        """
+        Move only the given seats to sequentially renumbered rows.
+
+        Rows are mapped like renumber_rows(): the distinct rows of the given seats,
+        in order of first appearance, become new_start_row, new_start_row+1, ...
+
+        Args:
+            seats: (row, seat_number) pairs to move; seats not in the section are ignored
+            new_start_row: Starting row number (can be numeric or alphanumeric)
+            add_prefix: If True, add '#' prefix to all new row numbers
+
+        Returns:
+            (old_row, seat_number, new_row) for every seat moved
+
+        Raises:
+            ValidationError: if any target seat already exists and is not being moved.
+                Nothing is modified in that case.
+        """
+        to_move = [(row, num) for row, num in dict.fromkeys(seats) if f"{row}-{num}" in self.seats]
+        if not to_move:
+            return []
+
+        old_rows = list(dict.fromkeys(row for row, _ in to_move))
+        is_digit = new_start_row.isdigit()
+        start_idx = to_index(new_start_row)
+        prefix = "#" if add_prefix else ""
+        row_mapping = {
+            old: f"{prefix}{from_index(start_idx + i, is_digit)}"
+            for i, old in enumerate(old_rows)
+        }
+
+        moving_keys = {f"{row}-{num}" for row, num in to_move}
+        conflicts = [
+            f"{row_mapping[row]}-{num}"
+            for row, num in to_move
+            if f"{row_mapping[row]}-{num}" in self.seats
+            and f"{row_mapping[row]}-{num}" not in moving_keys
+        ]
+        if conflicts:
+            raise ValidationError(
+                f"Target seats already exist: {', '.join(conflicts)}", errors=conflicts
+            )
+
+        # Pop all first so seats moving into each other's slots don't clobber
+        popped = [(row, num, self.seats.pop(f"{row}-{num}")) for row, num in to_move]
+        moved = []
+        for old_row, num, seat in popped:
+            new_row = row_mapping[old_row]
+            seat.row_number = new_row
+            self.seats[f"{new_row}-{num}"] = seat
+            moved.append((old_row, num, new_row))
+        return moved
 
     def clone(self) -> 'Section':
         """Return a deep copy of this section with '_copy' appended to name."""
