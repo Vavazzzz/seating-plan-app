@@ -223,6 +223,50 @@ class RenumberRowsDialog(QDialog):
         return self.is_unnumbered_checkbox.isChecked()
 
 
+class ApiImportDialog(QDialog):
+    """Dialog to collect the config ID and plan name for an API import."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Import from API")
+        self.setModal(True)
+
+        layout = QFormLayout()
+
+        self.config_id_input = QLineEdit()
+        self.config_id_input.setPlaceholderText("e.g., 152064")
+        layout.addRow("Config ID:", self.config_id_input)
+
+        self.plan_name_input = QLineEdit()
+        self.plan_name_input.setPlaceholderText("Leave blank to use 'Config <id>'")
+        layout.addRow("Plan name:", self.plan_name_input)
+
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok |
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addRow(self.buttons)
+
+        # OK stays disabled until a config ID is entered
+        self._ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._ok_button.setEnabled(False)
+        self.config_id_input.textChanged.connect(self._update_ok_state)
+
+        self.setLayout(layout)
+        self.config_id_input.setFocus()
+
+    def _update_ok_state(self, text: str) -> None:
+        self._ok_button.setEnabled(bool(text.strip()))
+
+    def get_values(self) -> tuple[str, str]:
+        """Return (config_id, plan_name); plan_name defaults to 'Config <id>'."""
+        config_id = self.config_id_input.text().strip()
+        plan_name = self.plan_name_input.text().strip() or f"Config {config_id}"
+        return config_id, plan_name
+
+
 class FileDialog:
     """Static file dialog helper methods."""
 

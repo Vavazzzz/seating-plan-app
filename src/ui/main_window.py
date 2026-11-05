@@ -2,9 +2,10 @@
 
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QMainWindow, QSplitter,
+    QApplication, QMainWindow, QSplitter,
     QLabel, QMessageBox, QDialog
 )
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QKeySequence, QCloseEvent
 
 from domain.models.seating_plan import SeatingPlan
@@ -17,13 +18,17 @@ from infrastructure.import_export import (
     JSONImporter,
     ExcelImporter,
     AvailImporter,
+    APIImporter,
     JSONExporter,
     ExcelExporter,
 )
+from infrastructure.api.apicaller import APICaller
+from infrastructure.api.config import BASE_URL
+from infrastructure.api.fetchdata import fetch_config_data
 from infrastructure.persistence import JSONRepository
 from .widgets import SectionsPanel
 from .section_view import SectionView
-from .dialogs import FileDialog, NewPlanDialog
+from .dialogs import FileDialog, NewPlanDialog, ApiImportDialog
 
 
 class MainWindow(QMainWindow):
@@ -43,6 +48,8 @@ class MainWindow(QMainWindow):
             "importers": [JSONImporter(), ExcelImporter(), AvailImporter()],
             "exporters": [JSONExporter(), ExcelExporter()],
             "repository": JSONRepository(),
+            "api_fetch": lambda config_id: fetch_config_data(APICaller(BASE_URL), config_id),
+            "api_importer": APIImporter(),
         }
         
         self.plan_service = SeatingPlanService(
@@ -131,6 +138,11 @@ class MainWindow(QMainWindow):
         import_action.setShortcut(QKeySequence("Ctrl+I"))
         import_action.triggered.connect(self._import_plan)
         file_menu.addAction(import_action)
+
+        import_api_action = QAction("Import from API...", self)
+        import_api_action.setShortcut(QKeySequence("Ctrl+Shift+I"))
+        import_api_action.triggered.connect(self._import_from_api)
+        file_menu.addAction(import_api_action)
 
         file_menu.addSeparator()
 
@@ -332,6 +344,31 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.critical(self, "Error", f"Failed to import: {result.error}")
     
+    def _import_from_api(self) -> None:
+        """Import a seating plan from the Maps API."""
+        if not self._confirm_discard_changes():
+            return
+        dialog = ApiImportDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        config_id, plan_name = dialog.get_values()
+        # The fetch runs on the UI thread, so show a wait cursor meanwhile
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            result = self.plan_service.import_from_api(config_id, plan_name)
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        if result.is_success():
+            self.current_project_path = None
+            self.command_handler.clear_history()
+            self._mark_clean()
+            self._refresh_ui()
+            self.status_label.setText(f"Imported from API: config {config_id}")
+        else:
+            QMessageBox.critical(self, "Error", f"Failed to import: {result.error}")
+
     def _export_plan(self) -> None:
         """Export the plan to a file."""
         path = FileDialog.get_save_path(

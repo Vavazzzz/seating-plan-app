@@ -6,6 +6,7 @@ from .json_exporter import JSONExporter
 from .excel_importer import ExcelImporter
 from .excel_exporter import ExcelExporter
 from .avail_importer import AvailImporter
+from .api_importer import APIImporter
 
 __all__ = [
     "Importer",
@@ -15,4 +16,5 @@ __all__ = [
     "ExcelImporter",
     "ExcelExporter",
     "AvailImporter",
+    "APIImporter",
 ]

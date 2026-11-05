@@ -13,6 +13,7 @@ from .seat_dialogs import (
     RangeInputDialog,
     AddCustomRowsDialog,
     RenumberRowsDialog,
+    ApiImportDialog,
     FileDialog,
 )
 
@@ -28,5 +29,6 @@ __all__ = [
     "RangeInputDialog",
     "AddCustomRowsDialog",
     "RenumberRowsDialog",
+    "ApiImportDialog",
     "FileDialog",
 ]

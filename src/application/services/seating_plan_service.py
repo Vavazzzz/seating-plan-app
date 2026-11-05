@@ -119,6 +119,60 @@ class SeatingPlanService(BaseService):
             errors.add(f"Unexpected error during import: {str(e)}")
             return Result.failure(errors)
     
+    def import_from_api(
+        self,
+        config_id: str,
+        plan_name: str | None = None,
+    ) -> Result[None, ValidationErrors]:
+        """Import a seating plan from the Maps API.
+
+        Requires 'api_fetch' (config_id -> raw API response) and 'api_importer'
+        (an Importer) in use_cases_config.
+
+        Args:
+            config_id: Numeric Maps API config id
+            plan_name: Optional custom name for the imported plan
+
+        Returns:
+            Result indicating success or validation errors
+        """
+        self.clear_validation_errors()
+
+        config_id = (config_id or "").strip()
+        if not config_id:
+            self.validate(False, "Config ID cannot be empty")
+        elif not config_id.isdigit():
+            self.validate(False, "Config ID must be numeric")
+
+        if self.has_validation_errors():
+            return Result.failure(self.get_validation_errors())
+
+        try:
+            fetch = self.use_cases_config.get("api_fetch")
+            importer = self.use_cases_config.get("api_importer")
+            if fetch is None or importer is None:
+                raise ValueError("API import is not configured")
+
+            api_response = fetch(config_id)
+            imported_plan = importer.import_seating_plan(
+                api_response, plan_name or f"Config {config_id}"
+            )
+
+            # Replace current plan with imported one
+            self.seating_plan.sections.clear()
+            self.seating_plan.sections.update(imported_plan.sections)
+            self.seating_plan.name = imported_plan.name
+
+            return Result.success(None)
+        except SeatingPlanException as e:
+            errors = ValidationErrors()
+            errors.add(f"Import failed: {str(e)}")
+            return Result.failure(errors)
+        except Exception as e:
+            errors = ValidationErrors()
+            errors.add(f"Unexpected error during import: {str(e)}")
+            return Result.failure(errors)
+
     def export_seating_plan(
         self,
         file_path: str,
