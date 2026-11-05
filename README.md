@@ -30,7 +30,7 @@ The Seating Plan Application is a GUI tool for event organizers to create and ma
 
 ### File Operations
 - **Save/Load**: JSON-based project persistence
-- **Import**: JSON, Excel (`.xlsx`), Avail XML
+- **Import**: JSON, Excel (`.xlsx`), Avail XML, and directly from the Maps API by config ID (requires network access)
 - **Export**: JSON, Excel
 - Full **undo/redo** for all mutating operations
 
@@ -89,7 +89,8 @@ python run.py
 | `Ctrl+S` | Save |
 | `Ctrl+Shift+S` | Save As |
 | `Ctrl+E` | Export |
-| `Ctrl+I` | Import |
+| `Ctrl+I` | Import from file |
+| `Ctrl+Shift+I` | Import from Maps API |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Y` | Redo |
 | `Ctrl+A` | Select all seats in current section |
@@ -152,14 +153,19 @@ seating-plan-app/
 │   │   ├── result.py                # Result[T, E] — explicit error handling
 │   │   └── use_cases.py             # Import/export/save/load use cases
 │   │
-│   ├── infrastructure/              # Persistence and file I/O
+│   ├── infrastructure/              # Persistence, file I/O and HTTP
+│   │   ├── api/
+│   │   │   ├── config.py            # Maps API base URL and endpoints
+│   │   │   ├── apicaller.py         # HTTP GET wrapper (raises SeatingPlanException)
+│   │   │   └── fetchdata.py         # Fetch seats/segments/features for a config ID
 │   │   ├── import_export/
 │   │   │   ├── abstract.py          # Importer / Exporter base classes
 │   │   │   ├── json_importer.py
 │   │   │   ├── json_exporter.py
 │   │   │   ├── excel_importer.py
 │   │   │   ├── excel_exporter.py
-│   │   │   └── avail_importer.py
+│   │   │   ├── avail_importer.py
+│   │   │   └── api_importer.py      # Maps API payloads -> SeatingPlan
 │   │   └── persistence/
 │   │       ├── abstract.py          # SeatingPlanRepository interface
 │   │       └── json_repository.py
@@ -177,6 +183,8 @@ seating-plan-app/
 │
 ├── tests/
 │   ├── unit/
+│   │   ├── application/
+│   │   │   └── test_import_from_api.py
 │   │   └── domain/
 │   │       ├── test_seating_plan.py
 │   │       └── test_section.py
@@ -210,7 +218,7 @@ else:
 | `domain/` | other `domain/` | `application/`, `infrastructure/`, `ui/`, PyQt6 |
 | `application/` | `domain/`, other `application/` | `infrastructure/` concrete classes, `ui/`, PyQt6 |
 | `infrastructure/` | `domain/` | `application/`, `ui/`, PyQt6 |
-| `ui/` | `application/services/`, `application/result.py`, `domain/models/` | `infrastructure/` directly |
+| `ui/` | `application/services/`, `application/result.py`, `domain/models/` | `infrastructure/` directly (sole exception: `main_window.py` wires concrete importers/exporters/repository into the service config) |
 
 ## License
 

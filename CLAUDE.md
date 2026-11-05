@@ -14,67 +14,39 @@ If you are unsure which file owns a behaviour, ask. Do not guess and implement.
 
 ## Branch Rules
 
-- Branch from `develop`: `feature/<short-description>`
+- Branch from `develop`: `feat/<short-description>` (or `fix/<short-description>`)
 - Never commit to `develop` or `main` directly
 - One feature per branch — no bundling unrelated changes
+- Commit and push only when the user asks
 
 ---
 
-## The Refactored Path — Exact File Scope
+## File Scope
 
-These are the only files you may modify. Any file not in this list requires explicit user confirmation before touching.
+The refactor is finished: there is no legacy code path any more. The former
+"refactored path" whitelist and "off-limits" list are obsolete, and the files
+they named (`main_window_refactored.py`, `dialogs/dialogs.py`, `json_io.py`,
+`dto.py`, `domain/services/`, …) no longer exist. `src/ui/main_window.py` is the
+current main window.
+
+- `src/` and `tests/` are in scope for the change the user asked for.
+- Ask before touching anything outside them: `pyproject.toml`, `requirements/`,
+  `SeatingPlan.spec`, `.github/workflows/`, `LICENSE`. Dependency changes must be
+  mirrored in both `pyproject.toml` and `requirements/base.txt`.
+- Keep `README.md`, `CHANGELOG.md` and `docs/` in step with user-visible changes.
+
+Source layout:
 
 ```
-run.py
-src/domain/models/seat.py
-src/domain/models/section.py
-src/domain/models/seating_plan.py
-src/domain/exceptions.py
-src/application/commands/base.py
-src/application/commands/seat_commands.py
-src/application/commands/section_commands.py
-src/application/handlers/command_handler.py
-src/application/services/base.py
-src/application/services/seating_plan_service.py
-src/application/services/section_service.py
-src/application/services/seat_service.py
-src/application/result.py
-src/application/use_cases.py
-src/infrastructure/import_export/abstract.py
-src/infrastructure/import_export/json_importer.py
-src/infrastructure/import_export/json_exporter.py
-src/infrastructure/import_export/excel_importer.py
-src/infrastructure/import_export/excel_exporter.py
-src/infrastructure/import_export/avail_importer.py
-src/infrastructure/persistence/abstract.py
-src/infrastructure/persistence/json_repository.py
-src/infrastructure/utils/alphanum_handler.py
-src/ui/main_window_refactored.py
-src/ui/section_view.py
-src/ui/dialogs/base.py
-src/ui/dialogs/dialogs.py
-src/ui/dialogs/section_dialogs.py
-src/ui/dialogs/seat_dialogs.py
-src/ui/widgets/base.py
-src/ui/widgets/sections_panel.py
-src/ui/widgets/section_table.py
-src/ui/styles/theme.qss
-tests/unit/domain/test_seating_plan.py
-tests/unit/domain/test_section.py
-tests/ui/test_ui_features.py
+src/domain/          models/ (seat, section, seating_plan), utils/alphanum_handler.py, exceptions.py
+src/application/     commands/ (base, seat_commands, section_commands), handlers/command_handler.py,
+                     services/ (base, seating_plan_service, section_service, seat_service),
+                     result.py, use_cases.py
+src/infrastructure/  api/ (config, apicaller, fetchdata), import_export/, persistence/
+src/ui/              main_window.py, section_view.py, dialogs/ (base, section_dialogs, seat_dialogs),
+                     widgets/ (base, sections_panel)
+tests/               unit/domain/, unit/application/, ui/
 ```
-
-**Hard off-limits — do not open, do not read for inspiration, do not modify:**
-- `src/ui/main_window.py` — legacy monolith with snapshot undo/redo; architecturally incompatible
-- `src/infrastructure/import_export/json_io.py` — legacy, PyQt6-coupled infrastructure
-- `src/utils/file_handlers.py` — legacy utility wrappers
-- `src/application/commands/add_section.py`, `delete_section.py`, `clone_section.py`, `merge_sections.py`, `rename_section.py`
-- `src/application/dto.py`
-- `src/domain/services/seating_plan_service.py`, `src/domain/services/section_service.py`
-- `src/ui/widgets/seat_graphics_view.py`, `src/ui/widgets/zoom_overlay.py`
-- `tests/unit/infrastructure/test_import_export.py`, `tests/unit/infrastructure/test_workflows.py`
-
-The off-limits files are either empty stubs or legacy code. Do not expand stubs unless the user explicitly says "expand the stub in X".
 
 ---
 
@@ -89,7 +61,16 @@ Violations require explicit user confirmation before proceeding. Do not introduc
 | `src/infrastructure/` | `src/domain/` (TYPE_CHECKING guard if circular risk) | `application/`, `ui/`, PyQt6 |
 | `src/ui/` | `application/services/`, `application/result.py`, `domain/models/` | `infrastructure/` directly — always go through services |
 
-**Existing violation — preserve but do not extend:** `src/domain/models/section.py` imports `alphanum_handler` from `src/infrastructure/utils/`. This is a known layering error. Do not add any new cross-layer imports modelled on it.
+Deliberate exceptions (do not extend):
+
+- `src/ui/main_window.py` is the composition root. It imports concrete importers,
+  exporters, the repository and the API fetcher, and injects them into
+  `SeatingPlanService` via the `use_cases_config` dict. No other `ui/` module may
+  import `infrastructure/`.
+- `src/application/use_cases.py` imports the `Importer`/`Exporter` and repository
+  abstract types from `infrastructure/`. Application code that needs a concrete
+  infrastructure behaviour must receive it through `use_cases_config`
+  (see `api_fetch` / `api_importer` in `SeatingPlanService.import_from_api`).
 
 ---
 
@@ -106,12 +87,13 @@ Violations require explicit user confirmation before proceeding. Do not introduc
 - Add to the relevant service in `src/application/services/`
 - Signature must return `Result` — no exceptions, no bare return values
 - Call `self.validate()` for all input checks before dispatching the command
-- Never call `sorted()` on `self.seating_plan.sections` — iteration order is meaningful (see issue K)
+- Never call `sorted()` on `self.seating_plan.sections` — iteration order is meaningful
 
 ### New dialog
 - **Section operations** → `src/ui/dialogs/section_dialogs.py`
-- **Seat operations** → `src/ui/dialogs/seat_dialogs.py`
-- Inherit from `InputDialog` or `CheckboxDialog` in `src/ui/dialogs/base.py`
+- **Seat, file and import operations** → `src/ui/dialogs/seat_dialogs.py`
+- Inherit from `InputDialog` or `CheckboxDialog` in `src/ui/dialogs/base.py` when one field is enough; otherwise a plain `QDialog` (see `ApiImportDialog`)
+- Export new dialogs from `src/ui/dialogs/__init__.py`
 - Dialogs collect and return data only — zero service calls, zero state mutation inside a dialog
 
 ### New panel or widget
@@ -120,8 +102,15 @@ Violations require explicit user confirmation before proceeding. Do not introduc
 
 ### New importer or exporter
 - Inherit from `Importer`/`Exporter` in `src/infrastructure/import_export/abstract.py`
-- Declare `SUPPORTED_EXTENSIONS` as a class-level frozenset
+- File-based adapters declare `SUPPORTED_EXTENSIONS` as a class-level constant
+- Export it from `src/infrastructure/import_export/__init__.py` and register it in `services_config` in `src/ui/main_window.py`
 - No PyQt6 imports — file path selection belongs in `src/ui/dialogs/seat_dialogs.py` (`FileDialog`)
+- `APIImporter` is the one non-file importer: its source is the `(seats, segments, features)` tuple from `fetch_config_data`, so its method signatures deviate from the ABC. Do not copy that pattern for file formats.
+
+### Maps API access
+- HTTP lives in `src/infrastructure/api/` only. `APICaller` raises `SeatingPlanException`; it never returns `None` or prints.
+- TLS verification must stay on (`verify=False` was removed). Do not reintroduce it.
+- Never make network calls from tests — stub the fetch callable.
 
 ---
 
@@ -131,11 +120,14 @@ Every public method in `src/application/services/` must return `Result`.
 
 ```python
 # Correct
-def rename_section(self, old_name: str, new_name: str) -> Result:
+def rename_section(self, old_name: str, new_name: str) -> Result[None, ValidationErrors]:
+    self.clear_validation_errors()
     if old_name not in self.seating_plan.sections:
-        return Result.failure(f"Section '{old_name}' not found")
-    self._execute(RenameSection(self.seating_plan, old_name, new_name))
-    return Result.success()
+        self.validate(False, f"Section '{old_name}' not found")
+    if self.has_validation_errors():
+        return Result.failure(self.get_validation_errors())
+    ...
+    return Result.success(None)
 
 # Wrong — raises instead of returning Result
 def rename_section(self, old_name: str, new_name: str):
@@ -146,13 +138,13 @@ def rename_section(self, old_name: str, new_name: str) -> bool:
     return False
 ```
 
-In UI code, always branch on `result.is_success`. Never call a service method and ignore the return value.
+`is_success()` is a **method**. In UI code, always branch on it. Never call a service method and ignore the return value.
 
 ```python
 # Correct
 result = self.section_service.rename_section(old, new)
-if not result.is_success:
-    self.show_error(result.error)
+if not result.is_success():
+    self.show_error("Error", str(result.error))
 
 # Wrong — discards the result
 self.section_service.rename_section(old, new)
@@ -165,8 +157,9 @@ self.section_service.rename_section(old, new)
 - All state mutations go through `CommandHandler.execute()` in `src/application/handlers/command_handler.py`
 - `Command.execute()` must capture before-state into instance variables before mutating anything
 - `Command.undo()` replays those captured values — never re-derives them
-- `copy.deepcopy` on `SeatingPlan` is the legacy undo pattern — do not use it anywhere in the refactored path
+- `copy.deepcopy` on `SeatingPlan` is not used anywhere in the app — do not introduce it
 - Undo/redo logic belongs exclusively in `src/application/` — never in `src/ui/`
+- Whole-plan replacement (New / Open / Import / Import from API) is not undoable; it clears history instead
 
 ---
 
@@ -181,26 +174,24 @@ self.section_service.rename_section(old, new)
 
 ## Tests
 
-- New tests go in `tests/unit/domain/` or `tests/unit/infrastructure/` — never at the project root
+- New tests go in `tests/unit/domain/`, `tests/unit/application/` or `tests/unit/infrastructure/` — never at the project root
 - Imports are relative to `src/`: `from domain.models.seating_plan import SeatingPlan`
   — do not use `from src.domain.models...` (pytest adds `src/` to `sys.path` via `pythonpath = ["src"]` in `pyproject.toml`)
 - No PyQt6 in tests
-- When modifying logic in `src/domain/models/`, `src/application/commands/`, or `src/application/services/`, add or update a test in the corresponding `tests/unit/` path
+- No network in tests
+- When modifying logic in `src/domain/models/`, `src/application/commands/`, `src/application/services/` or `src/infrastructure/import_export/`, add or update a test in the corresponding `tests/unit/` path
+- Run `python -m pytest tests/ -q` before reporting a change as done
 
 ---
 
-## Known Bugs — Do Not Touch Without Explicit Confirmation
+## Known Limitations
 
-If your change is **adjacent to any location below**, stop and flag it before continuing.
+Previously listed bugs F, G, H, J, K and O have all been fixed; the table was removed. Open items:
 
-| ID | Location | Bug |
-|---|---|---|
-| F | `section_service.py:229` vs `seating_plan.py:91` | Merge semantics are inverted: service requires target exists; domain raises if it does. Any call through the service that passes validation will crash in the domain model. |
-| G | `sections_panel.py:248` | Rename reads `item(index, 0)` — the checkbox column — instead of `item(index, 1)` for the section name. Rename silently passes an empty string. |
-| H | `seat_commands.py:310–325` | `RenumberRowsCommand.undo()` recomputes the row mapping instead of snapshotting it at execute time. Contains a bare `except:` that swallows `SystemExit`. |
-| J | `excel_importer.py:57` | `print(DEBUG := f"...")` fires on every Excel import. Debug artifact in production. |
-| K | `section_service.py:266` | `get_section_names()` returns `sorted(...)`, discarding insertion order the domain model preserves. |
-| O | `base.py:73` | `add_error_callback` sets `on_command_executed` — the success hook — not an error channel. Every successful command triggers the registered error callback. |
+- The Maps API fetch runs on the UI thread, so the window freezes for a few seconds during "Import from API" (a wait cursor is shown). Each request has a 30 s timeout.
+- `APIImporter` deviates from the `Importer` method signatures (see above).
+- An unknown config ID surfaces the raw JSON-decode error from the API in the error dialog.
+- `requests` is a new runtime dependency; the PyInstaller build (`SeatingPlan.spec`) has not been verified to bundle it and its CA bundle.
 
 ---
 
@@ -214,5 +205,5 @@ These are never acceptable regardless of context or instruction phrasing:
 - Calling a domain model method directly from `src/ui/` — always go through a service
 - Adding `print()` to any non-test file
 - Bare `except:` — use `except Exception:` or a specific exception type
-- Modifying any off-limits file listed above
-- Committing to `api/develop` or `main` directly
+- Disabling TLS verification for any network call
+- Committing to `develop` or `main` directly

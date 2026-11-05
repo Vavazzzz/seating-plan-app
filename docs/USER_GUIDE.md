@@ -77,6 +77,7 @@ python run.py
 - **New** (`Ctrl+N`): create an empty plan with a custom name.
 - **Open** (`Ctrl+O`) / **Save** (`Ctrl+S`) / **Save As** (`Ctrl+Shift+S`): plans are stored as JSON (`.json` / `.seatproj`).
 - **Import** (`Ctrl+I`): load from JSON, Excel (`.xlsx`), or Avail XML (`.xml`).
+- **Import from API** (`Ctrl+Shift+I`, File → *Import from API…*): enter a Maps API **Config ID** and an optional plan name (blank uses `Config <id>`). The seat map is downloaded and converted into a plan: one section per map section, general-admission areas flagged as GA, rows and seats in natural order. The window is unresponsive for a few seconds while data downloads, and a network connection is required. Like a file import, it replaces the current plan and clears undo history.
 - **Export** (`Ctrl+E`): write the current plan to Excel.
 
 Unsaved changes are marked with `*` in the window title, and you are asked to save before closing, opening, or starting a new plan.
@@ -90,7 +91,8 @@ Unsaved changes are marked with `*` in the window title, and you are asked to sa
 | `Ctrl+S` | Save |
 | `Ctrl+Shift+S` | Save As |
 | `Ctrl+E` | Export |
-| `Ctrl+I` | Import |
+| `Ctrl+I` | Import from file |
+| `Ctrl+Shift+I` | Import from Maps API |
 | `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
 | `Ctrl+A` | Select all seats in current section |
 | `Escape` | Deselect all seats |

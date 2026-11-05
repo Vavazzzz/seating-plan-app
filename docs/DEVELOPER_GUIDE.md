@@ -24,7 +24,8 @@ The application follows a layered architecture:
 │ • exceptions.py  SeatingPlanException hierarchy           │
 ├─────────────────────────────────────────────────────────┤
 │ Infrastructure Layer                      src/infrastructure/│
-│ • import_export/  JSON, Excel, Avail XML adapters         │
+│ • import_export/  JSON, Excel, Avail XML, Maps API        │
+│ • api/  HTTP client + config for the Maps API             │
 │ • persistence/  SeatingPlanRepository + JSONRepository    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -37,6 +38,15 @@ The application follows a layered architecture:
 | `application/` | `domain/`, other `application/` | `infrastructure/` concrete classes, `ui/`, PyQt6 |
 | `infrastructure/` | `domain/` | `application/`, `ui/`, PyQt6 |
 | `ui/` | `application/services/`, `application/result.py`, `domain/models/` | `infrastructure/` directly — go through services |
+
+Two deliberate exceptions:
+
+- `src/ui/main_window.py` is the composition root: it imports concrete
+  importers, exporters, the repository and the API fetcher, and injects them
+  into `SeatingPlanService` through its `use_cases_config` dict. Nothing else in
+  `ui/` may import `infrastructure/`.
+- `src/application/use_cases.py` imports the `Importer`/`Exporter` and
+  repository **abstract** types from `infrastructure/` for type hints only.
 
 ## Project Structure
 
@@ -102,6 +112,30 @@ Inherit from `Importer`/`Exporter` in
 `src/ui/main_window.py`. No PyQt6 imports in infrastructure — file pickers
 belong in `src/ui/dialogs/seat_dialogs.py` (`FileDialog`).
 
+### Maps API import
+
+`File → Import from API…` collects a config ID and plan name in
+`ApiImportDialog` and calls `SeatingPlanService.import_from_api()`. Pieces:
+
+- `infrastructure/api/config.py` — base URL and endpoint templates.
+- `infrastructure/api/apicaller.py` — `APICaller.call_api()`; raises
+  `SeatingPlanException` (`API_REQUEST_FAILED`) on HTTP/network errors, with a
+  30 s timeout per request. TLS verification is on (default CA bundle).
+- `infrastructure/api/fetchdata.py` — `fetch_config_data()` returns
+  `(seats, segments, features)` for a config ID.
+- `infrastructure/import_export/api_importer.py` — `APIImporter` turns the
+  payloads into a `SeatingPlan`. Section names come from the `SECTION` child
+  segment (falling back to the `COMPOSITE` name); `generalAdmission`
+  composites become GA sections; seats are added in natural sort order and the
+  `m` marker and geometry fields are ignored.
+- The service receives the fetch callable and the importer as `api_fetch` and
+  `api_importer` in `use_cases_config`, so `application/` never imports
+  infrastructure classes.
+
+`APIImporter` inherits `Importer` but its source is the fetched payload tuple,
+not a file path, so its method signatures deviate from the ABC. The fetch runs
+on the UI thread (the main window shows a wait cursor).
+
 ### Dialogs
 
 Dialogs collect and return data only — no service calls, no state mutation.
@@ -137,6 +171,7 @@ python -m pytest tests/ -v
 
 # By area
 python -m pytest tests/unit/domain/ -v
+python -m pytest tests/unit/application/ -v
 python -m pytest tests/ui/ -v
 ```
 

@@ -1,11 +1,8 @@
 """API Caller module for making HTTP requests to Maps API"""
 
 import requests
-import urllib3
 
 from domain.exceptions import SeatingPlanException
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class APICaller:
@@ -36,13 +33,15 @@ class APICaller:
             headers: Optional custom headers (defaults to HEADERS)
 
         Returns:
-            Parsed JSON response, or None if the request fails
+            Parsed JSON response
+
+        Raises:
+            SeatingPlanException: If the request fails or the body is not valid JSON
         """
         url = f"{self.base_url}/{endpoint}"
         try:
             response = requests.get(
                 url,
-                verify=False,
                 headers=headers or self.HEADERS,
                 timeout=self.TIMEOUT_SECONDS,
             )

@@ -10,6 +10,13 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - The row-range dialog no longer opens when a new General Admission section is created — GA sections have no rows, so the prompt was meaningless
 
+## [Unreleased] - feat/api-import
+
+### Added
+- File → "Import from API…" (`Ctrl+Shift+I`): import a seating plan from the Maps API by config ID, via `ApiImportDialog`, `SeatingPlanService.import_from_api()`, `APIImporter`, and the `infrastructure/api/` HTTP client
+- `requests` (and its transitive dependencies) added to `pyproject.toml` and `requirements/base.txt`
+- Unit tests for the API import service in `tests/unit/application/`
+
 ## [Unreleased] - refactor-plan branch
 
 ### Added (codebase cleanup)
