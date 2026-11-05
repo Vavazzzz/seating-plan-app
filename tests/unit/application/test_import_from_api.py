@@ -43,7 +43,7 @@ def test_success_replaces_plan_and_names_it():
     result = service.import_from_api("123", "My Plan")
     assert result.is_success()
     assert plan.name == "My Plan"
-    assert list(plan.sections) == ["Section A", "PIT"]  # SECTION name, segment order
+    assert list(plan.sections) == ["PIT", "Section A"]  # SECTION name, alphabetical
     assert plan.sections["PIT"].is_ga
     assert list(plan.sections["Section A"].seats) == ["1-1", "1-2", "2-10"]
 
@@ -81,3 +81,16 @@ def test_malformed_payload_returns_failure():
 def test_not_configured_returns_failure():
     service, _ = make_service(configured=False)
     assert not service.import_from_api("123").is_success()
+
+
+def test_sections_sorted_naturally_and_case_insensitively():
+    segments = [
+        {"id": "s_1", "name": "Section 10", "segmentCategory": "COMPOSITE"},
+        {"id": "s_2", "name": "section 2", "segmentCategory": "COMPOSITE"},
+        {"id": "s_3", "name": "Balcony", "segmentCategory": "COMPOSITE"},
+        {"id": "s_4", "name": "1 Anello", "segmentCategory": "COMPOSITE"},
+        {"id": "s_5", "name": "Pit", "segmentCategory": "COMPOSITE", "generalAdmission": True},
+    ]
+    service, plan = make_service(fetch=lambda cid: ({"features": []}, segments, {}))
+    assert service.import_from_api("123").is_success()
+    assert list(plan.sections) == ["1 Anello", "Balcony", "Pit", "section 2", "Section 10"]

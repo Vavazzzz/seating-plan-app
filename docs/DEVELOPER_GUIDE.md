@@ -126,7 +126,8 @@ belong in `src/ui/dialogs/seat_dialogs.py` (`FileDialog`).
 - `infrastructure/import_export/api_importer.py` — `APIImporter` turns the
   payloads into a `SeatingPlan`. Section names come from the `SECTION` child
   segment (falling back to the `COMPOSITE` name); `generalAdmission`
-  composites become GA sections; seats are added in natural sort order and the
+  composites become GA sections; sections are sorted alphabetically (natural,
+  case-insensitive) and seats are added in natural sort order; the
   `m` marker and geometry fields are ignored.
 - The service receives the fetch callable and the importer as `api_fetch` and
   `api_importer` in `use_cases_config`, so `application/` never imports

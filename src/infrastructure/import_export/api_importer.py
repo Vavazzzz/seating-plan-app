@@ -1,5 +1,6 @@
 """Maps API importer for seating plans."""
 
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -79,10 +80,11 @@ class APIImporter(Importer):
 
     @staticmethod
     def _build_sections(seating_plan: "SeatingPlan", segments: list[dict]) -> dict[str, str]:
-        """Create sections in segment order; return a map of sid -> section name.
+        """Create sections sorted alphabetically; return a map of sid -> section name.
 
         The section name comes from the SECTION child segment (id "s_24:HASH"),
         falling back to the COMPOSITE name when there is none (e.g. GA areas).
+        Order is case-insensitive and natural ("Section 2" before "Section 10").
         """
         section_names = {
             seg["id"].split(":", 1)[0]: seg["name"]
@@ -90,17 +92,33 @@ class APIImporter(Importer):
             if seg.get("segmentCategory") == "SECTION"
         }
 
-        sid_to_name: dict[str, str] = {}
+        entries: list[tuple[str, str, bool]] = []  # (sid, name, is_ga)
         for seg in segments:
             if seg.get("segmentCategory") != "COMPOSITE":
                 continue
             sid = seg["id"]
-            name = (section_names.get(sid) or seg.get("name") or "").strip()
+            name = (section_names.get(sid) or seg.get("name") or "").strip().upper()
             if not name:
                 continue
-            seating_plan.add_section(name, is_ga=bool(seg.get("generalAdmission", False)))
+            entries.append((sid, name, bool(seg.get("generalAdmission", False))))
+
+        entries.sort(key=lambda e: APIImporter._natural_name_key(e[1]))
+
+        sid_to_name: dict[str, str] = {}
+        for sid, name, is_ga in entries:
+            seating_plan.add_section(name, is_ga=is_ga)
             sid_to_name[sid] = name
         return sid_to_name
+
+    @staticmethod
+    def _natural_name_key(name: str) -> list[str | int]:
+        """Case-insensitive natural sort key: digit runs compare as numbers."""
+        # re.split with a capture group alternates text, number, text, ... so
+        # str and int always line up at the same positions between two keys
+        return [
+            int(part) if i % 2 else part.casefold()
+            for i, part in enumerate(re.split(r"(\d+)", name))
+        ]
 
     @staticmethod
     def _add_seats(
