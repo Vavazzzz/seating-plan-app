@@ -120,7 +120,10 @@ belong in `src/ui/dialogs/seat_dialogs.py` (`FileDialog`).
 - `infrastructure/api/config.py` — base URL and endpoint templates.
 - `infrastructure/api/apicaller.py` — `APICaller.call_api()`; raises
   `SeatingPlanException` (`API_REQUEST_FAILED`) on HTTP/network errors, with a
-  30 s timeout per request. TLS verification is on (default CA bundle).
+  30 s timeout per request. TLS verification is on and uses the **OS trust
+  store** via `truststore`, so corporate TLS-inspection roots (e.g. Zscaler,
+  installed by IT into the Windows store) are trusted — in both `python run.py`
+  and the PyInstaller `.exe`.
 - `infrastructure/api/fetchdata.py` — `fetch_config_data()` returns
   `(seats, segments, features)` for a config ID.
 - `infrastructure/import_export/api_importer.py` — `APIImporter` turns the

@@ -14,7 +14,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - File → "Import from API…" (`Ctrl+Shift+I`): import a seating plan from the Maps API by config ID, via `ApiImportDialog`, `SeatingPlanService.import_from_api()`, `APIImporter`, and the `infrastructure/api/` HTTP client
-- `requests` (and its transitive dependencies) added to `pyproject.toml` and `requirements/base.txt`
+- `requests` (and its transitive dependencies) and `truststore` added to `pyproject.toml` and `requirements/base.txt`
+
+### Fixed
+- API import failed with `CERTIFICATE_VERIFY_FAILED` off VPN behind Zscaler TLS inspection: certificates are now verified against the Windows trust store (`truststore`) instead of certifi, with verification still enabled
 - Unit tests for the API import service in `tests/unit/application/`
 
 ## [Unreleased] - refactor-plan branch

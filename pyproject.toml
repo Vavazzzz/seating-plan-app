@@ -15,6 +15,7 @@ openpyxl = "3.1.5"
 beautifulsoup4 = "4.14.3"
 lxml = "6.0.2"
 requests = "2.34.2"
+truststore = "0.10.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0"

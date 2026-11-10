@@ -1,8 +1,24 @@
 """API Caller module for making HTTP requests to Maps API"""
 
+import ssl
+
 import requests
+import truststore
+from requests.adapters import HTTPAdapter
 
 from domain.exceptions import SeatingPlanException
+
+
+class _OSTrustStoreAdapter(HTTPAdapter):
+    """HTTPS adapter that verifies certificates against the OS trust store.
+
+    certifi (requests' default bundle) lacks corporate TLS-inspection roots such
+    as Zscaler's, which IT installs into the Windows store. Verification stays on.
+    """
+
+    def init_poolmanager(self, *args, **kwargs):
+        kwargs["ssl_context"] = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        return super().init_poolmanager(*args, **kwargs)
 
 
 class APICaller:
@@ -21,7 +37,9 @@ class APICaller:
             base_url: The base URL for API calls
         """
         self.base_url = base_url
-    
+        self._session = requests.Session()
+        self._session.mount("https://", _OSTrustStoreAdapter())
+
     TIMEOUT_SECONDS = 30
 
     def call_api(self, endpoint: str, headers: dict | None = None) -> dict | list:
@@ -40,7 +58,7 @@ class APICaller:
         """
         url = f"{self.base_url}/{endpoint}"
         try:
-            response = requests.get(
+            response = self._session.get(
                 url,
                 headers=headers or self.HEADERS,
                 timeout=self.TIMEOUT_SECONDS,

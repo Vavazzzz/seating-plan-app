@@ -110,6 +110,7 @@ Deliberate exceptions (do not extend):
 ### Maps API access
 - HTTP lives in `src/infrastructure/api/` only. `APICaller` raises `SeatingPlanException`; it never returns `None` or prints.
 - TLS verification must stay on (`verify=False` was removed). Do not reintroduce it.
+- Certificates are verified against the OS trust store (`truststore`, via the session adapter in `apicaller.py`), not certifi — this is what makes it work behind Zscaler. Make all HTTP calls through `APICaller`'s session, never bare `requests.get`.
 - Never make network calls from tests — stub the fetch callable.
 
 ---
@@ -191,7 +192,7 @@ Previously listed bugs F, G, H, J, K and O have all been fixed; the table was re
 - The Maps API fetch runs on the UI thread, so the window freezes for a few seconds during "Import from API" (a wait cursor is shown). Each request has a 30 s timeout.
 - `APIImporter` deviates from the `Importer` method signatures (see above).
 - An unknown config ID surfaces the raw JSON-decode error from the API in the error dialog.
-- `requests` is a new runtime dependency; the PyInstaller build (`SeatingPlan.spec`) has not been verified to bundle it and its CA bundle.
+- `requests` and `truststore` are new runtime dependencies; the PyInstaller build (`SeatingPlan.spec`) has not been verified to bundle it and its CA bundle.
 
 ---
 
