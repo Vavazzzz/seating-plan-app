@@ -89,7 +89,7 @@ class APIImporter(Importer):
         section_names = {
             seg["id"].split(":", 1)[0]: seg["name"]
             for seg in segments
-            if seg.get("segmentCategory") == "SECTION"
+            if seg.get("segmentCategory") == "COMPOSITE"
         }
 
         entries: list[tuple[str, str, bool]] = []  # (sid, name, is_ga)
